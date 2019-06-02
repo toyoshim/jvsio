@@ -13,7 +13,7 @@ constexpr uint8_t kBroadcastAddress = 0xFF;
 constexpr uint8_t kMarker = 0xD0;
 constexpr uint8_t kSync = 0xE0;
 
-void dump(const char* str, uint8_t* data, int len) {
+void dump(const char* str, uint8_t* data, size_t len) {
   Serial.print(str);
   Serial.print(": ");
   for (size_t i = 0; i < len; ++i) {
@@ -179,7 +179,8 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len) {
       sendOkStatus();
       continue;
     }
-    uint8_t command_size = getCommandSize(&rx_data_[rx_read_ptr_], &max_command_size);
+    uint8_t command_size =
+        getCommandSize(&rx_data_[rx_read_ptr_], max_command_size);
     if (!command_size) {
       sendUnknownCommandStatus();
       continue;
@@ -289,7 +290,7 @@ void JVSIO::receive() {
     }
     if (rx_size_ >= 2 && ((rx_data_[1] + 2) == rx_size_)) {
       uint8_t sum = 0;
-      for (size_t i = 0; i < (rx_size_ - 1); ++i)
+      for (size_t i = 0; i < (rx_size_ - 1u); ++i)
         sum += rx_data_[i];
       if (rx_data_[rx_size_ - 1] != sum) {
         sendSumErrorStatus();
