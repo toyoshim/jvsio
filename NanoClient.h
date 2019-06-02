@@ -12,7 +12,11 @@
 // Data+: 0 (RXI)
 // Data-: 2
 class NanoDataClient : public JVSIO::DataClient {
+  int available() override;
   void setMode(int mode) override;
+  void startTransaction() override;
+  void endTransaction() override;
+  uint8_t read() override;
   void write(uint8_t data)override;
 };
  

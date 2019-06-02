@@ -6,16 +6,34 @@
 
 #include "Arduino.h"
 
+int NanoDataClient::available() {
+  return Serial.available();
+}
+
+void NanoDataClient::startTransaction() {
+  noInterrupts();
+}
+
+void NanoDataClient::endTransaction() {
+  interrupts();
+}
+
 void NanoDataClient::setMode(int mode) {
   if (mode == INPUT) {
     pinMode(0, INPUT);
     pinMode(2, INPUT);
+    Serial.begin(115200);
   } else {
     digitalWrite(0, HIGH);
     digitalWrite(2, LOW);
     pinMode(0, OUTPUT);
     pinMode(2, OUTPUT);
+    Serial.end();
   }
+}
+
+uint8_t NanoDataClient::read() {
+  return Serial.read();
 }
 
 void NanoDataClient::write(uint8_t data) {

@@ -86,13 +86,11 @@ JVSIO::~JVSIO() {}
 
 void JVSIO::begin() {
   data_.setMode(INPUT);
-  Serial.begin(115200);
   sense_.begin();
 }
 
 void JVSIO::end() {
   data_.setMode(INPUT);
-  Serial.end();
 }
 
 uint8_t* JVSIO::getNextCommand(uint8_t* len) {
@@ -191,8 +189,8 @@ void JVSIO::senseReady() {
 }
 
 void JVSIO::receive() {
-  while (!rx_available_ && Serial.available() > 0) {
-    uint8_t data = Serial.read();
+  while (!rx_available_ && data_.available() > 0) {
+    uint8_t data = data_.read();
     if (data == kSync) {
       rx_size_ = 0;
       rx_receiving_ = true;
@@ -233,11 +231,10 @@ void JVSIO::receive() {
 
 void JVSIO::sendStatus() {
   data_.setMode(OUTPUT);
-  Serial.end();
 
   delayMicroseconds(100);
 
-  noInterrupts();
+  data_.startTransaction();
   data_.write(kSync);
   uint8_t sum = 0;
 
@@ -246,10 +243,9 @@ void JVSIO::sendStatus() {
     writeEscapedByte(data_, tx_data_[i]);
   }
   writeEscapedByte(data_, sum);
-  interrupts();
+  data_.endTransaction();
 
   data_.setMode(INPUT);
-  Serial.begin(115200);
 
   rx_available_ = false;
   rx_receiving_ = false;
