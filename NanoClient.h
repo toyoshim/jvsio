@@ -9,14 +9,21 @@
 
 #include "JVSIO.h"
 
-//  Sense: 3 (PWM - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
+// Data+: 0 (RXI)
+// Data-: 2
+class NanoDataClient : public JVSIO::DataClient {
+  void setMode(int mode) override;
+  void write(uint8_t data)override;
+};
+ 
+// Sense: 3 (PWM - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
 class NanoSenseClient : public JVSIO::SenseClient {
  public:
   void begin() override;
   void set(bool ready) override;
 };
 
-//  LED Ready: 13
+// LED Ready: 13
 class NanoLedClient : public JVSIO::LedClient {
   void begin() override;
   void set(bool ready) override;

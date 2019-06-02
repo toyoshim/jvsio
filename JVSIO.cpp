@@ -25,75 +25,12 @@ void dump(const char* str, uint8_t* data, size_t len) {
   Serial.println("");
 }
 
-void writeByte(uint8_t data) {
-  // 138t for each bit.
-  asm (
-    "rjmp 4f\n"
-
-   // Spends 134t = 8 + 1 + 3 x N - 1 + 2 + 4; N = 40
-   "1:\n"
-    "brcs 2f\n"      // 2t (1t for not taken)
-    "nop\n"          // 1t
-    "cbi 0x0b, 0\n"  // 2t
-    "sbi 0x0b, 2\n"  // 2t
-    "rjmp 3f\n"      // 2t (1 + 1 + 2 + 2 + 2)
-   "2:\n"
-    "sbi 0x0b, 0\n"  // 2t
-    "cbi 0x0b, 2\n"  // 2t
-    "rjmp 3f\n"      // 2t (2 + 2 + 2 + 2)
-   "3:\n"
-    "ldi r19, 40\n"  // 1t
-   "2:\n"
-    "dec r19\n"      // 1t
-    "brne 2b\n"      // 2t (1t for not taken)
-    "nop\n"          // 1t
-    "nop\n"          // 1t
-    "ret\n"          // 4t
-
-   // Sends Start, bit 0, ..., bit 7, Stop
-   "4:\n"
-    "mov r18, %0\n"
-    // Start bit
-    "sec\n"         // 1t
-    "rcall 1b\n"    // 3t
-    "clc\n"         // 1t
-    "rcall 1b\n"    // 3t
-    // Bit 0
-    "ror r18\n"     // 1t
-    "rcall 1b\n"    // 3t
-    // Bit 1
-    "ror r18\n"     // 1t
-    "rcall 1b\n"    // 3t
-    // Bit 2
-    "ror r18\n"     // 1t
-    "rcall 1b\n"    // 3t
-    // Bit 3
-    "ror r18\n"     // 1t
-    "rcall 1b\n"    // 3t
-    // Bit 4
-    "ror r18\n"     // 1t
-    "rcall 1b\n"    // 3t
-    // Bit 5
-    "ror r18\n"     // 1t
-    "rcall 1b\n"    // 3t
-    // Bit 6
-    "ror r18\n"     // 1t
-    "rcall 1b\n"    // 3t
-    // Bit 7
-    "ror r18\n"     // 1t
-    "rcall 1b\n"    // 3t
-    // Stop bit
-    "sec\n"         // 1t
-    "rcall 1b\n"    // 3t
-   :: "r" (data));
-}
-
-void writeEscapedByte(uint8_t data) {
+void writeEscapedByte(JVSIO::DataClient& client, uint8_t data) {
   if (data == kMarker || data == kSync) {
-    writeByte(kMarker);
-    writeByte(data - 1);
+    client.write(kMarker);
+    client.write(data - 1);
   } else {
-    writeByte(data);
+    client.write(data);
   }
 }
 
@@ -133,7 +70,8 @@ uint8_t getCommandSize(uint8_t* command, uint8_t len) {
 
 }  // namespace
 
-JVSIO::JVSIO(SenseClient sense, LedClient led) :
+JVSIO::JVSIO(DataClient data, SenseClient sense, LedClient led) :
+    data_(data),
     sense_(sense),
     led_(led),
     rx_size_(0),
@@ -147,16 +85,13 @@ JVSIO::JVSIO(SenseClient sense, LedClient led) :
 JVSIO::~JVSIO() {}
 
 void JVSIO::begin() {
-  pinMode(0, INPUT);
-  pinMode(2, INPUT);
+  data_.setMode(INPUT);
   Serial.begin(115200);
-
   sense_.begin();
 }
 
 void JVSIO::end() {
-  pinMode(0, INPUT);
-  pinMode(2, INPUT);
+  data_.setMode(INPUT);
   Serial.end();
 }
 
@@ -247,10 +182,12 @@ void JVSIO::pushReport(uint8_t report) {
 
 void JVSIO::senseNotReady() {
   sense_.set(false);
+  led_.set(false);
 }
 
 void JVSIO::senseReady() {
   sense_.set(true);
+  led_.set(true);
 }
 
 void JVSIO::receive() {
@@ -286,10 +223,7 @@ void JVSIO::receive() {
         rx_available_ = true;
         tx_report_size_ = 0;
         // Switch to output (should be done in 100us)
-        digitalWrite(0, HIGH);
-        digitalWrite(2, LOW);
-        pinMode(0, OUTPUT);
-        pinMode(2, OUTPUT);
+        data_.setMode(OUTPUT);
       } else {
         rx_size_ = 0;
       }
@@ -298,27 +232,23 @@ void JVSIO::receive() {
 }
 
 void JVSIO::sendStatus() {
-  digitalWrite(0, HIGH);
-  digitalWrite(2, LOW);
-  pinMode(0, OUTPUT);
-  pinMode(2, OUTPUT);
+  data_.setMode(OUTPUT);
   Serial.end();
 
   delayMicroseconds(100);
 
   noInterrupts();
-  writeByte(kSync);
+  data_.write(kSync);
   uint8_t sum = 0;
 
   for (uint8_t i = 0; i <= tx_data_[1]; ++i) {
     sum += tx_data_[i];
-    writeEscapedByte(tx_data_[i]);
+    writeEscapedByte(data_, tx_data_[i]);
   }
-  writeEscapedByte(sum);
+  writeEscapedByte(data_, sum);
   interrupts();
 
-  pinMode(0, INPUT);
-  pinMode(2, INPUT);
+  data_.setMode(INPUT);
   Serial.begin(115200);
 
   rx_available_ = false;

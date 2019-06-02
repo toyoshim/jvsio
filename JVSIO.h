@@ -17,18 +17,24 @@
 // does not support differential serial output.
 //
 // Pins:
-//  Data+: 0 (RXI)
-//  Data-: 2
+//  Data+: See DataClient implementation
+//  Data-: See DataClient implementation
 //  Sense: See SenseClient implementation
 //  LED Ready: See LedClient implementation
 class JVSIO {
  public:
+ class DataClient {
+  public:
+   virtual void setMode(int mode) {}
+   virtual void write(uint8_t data) {}
+ };
   class SenseClient {
    public:
     virtual void begin() {}
     virtual void set(bool ready) {}
   };
   class LedClient {
+   public:
     virtual void begin() {}
     virtual void set(bool ready) {}
   };
@@ -57,7 +63,7 @@ class JVSIO {
     kReportParamErrorIgnored = 0x03,
     kReportBusy = 0x04,
   };
-  JVSIO(SenseClient sense, LedClient led);
+  JVSIO(DataClient data, SenseClient sense, LedClient led);
   ~JVSIO();
 
   void begin();
@@ -79,6 +85,7 @@ class JVSIO {
   void sendSumErrorStatus();
   void sendOverflowStatus();
 
+  DataClient data_;
   SenseClient sense_;
   LedClient led_;
   uint8_t rx_data_[256];
