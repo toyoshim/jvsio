@@ -133,7 +133,9 @@ uint8_t getCommandSize(uint8_t* command, uint8_t len) {
 
 }  // namespace
 
-JVSIO::JVSIO() :
+JVSIO::JVSIO(SenseClient sense, LedClient led) :
+    sense_(sense),
+    led_(led),
     rx_size_(0),
     rx_read_ptr_(0),
     rx_receiving_(false),
@@ -149,17 +151,7 @@ void JVSIO::begin() {
   pinMode(2, INPUT);
   Serial.begin(115200);
 
-  // CTC mode
-  // Toggle output on matching the counter for Ch.B (Pin 3)
-  TCCR2A = 0x12;
-  // Count from 0 to 1
-  OCR2A = 1;
-  // Stop
-  TCCR2B = (TCCR2B & ~7) | 0;
-  // Run at CLK/1
-  TCCR2B = (TCCR2B & ~7) | 1;
-  pinMode(3, OUTPUT);
-  digitalWrite(3, LOW);
+  sense_.begin();
 }
 
 void JVSIO::end() {
@@ -254,17 +246,11 @@ void JVSIO::pushReport(uint8_t report) {
 }
 
 void JVSIO::senseNotReady() {
-  TCCR2A |= 0x10;
-
-  pinMode(13, OUTPUT);
-  digitalWrite(13, LOW);
+  sense_.set(false);
 }
 
 void JVSIO::senseReady() {
-  TCCR2A &= ~0x30;
-
-  pinMode(13, OUTPUT);
-  digitalWrite(13, HIGH);
+  sense_.set(true);
 }
 
 void JVSIO::receive() {

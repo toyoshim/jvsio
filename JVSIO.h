@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#if !defined(__JVSIO__H__)
+#if !defined(__JVSIO_H__)
 #define __JVSIO_H__
 
 // JVSIO provides JVS (Jamma Video Standard 3.0) I/O transport,
@@ -19,10 +19,19 @@
 // Pins:
 //  Data+: 0 (RXI)
 //  Data-: 2
-//  Sense: 3 (PWM - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
-//  LED Ready: 13
+//  Sense: See SenseClient implementation
+//  LED Ready: See LedClient implementation
 class JVSIO {
  public:
+  class SenseClient {
+   public:
+    virtual void begin() {}
+    virtual void set(bool ready) {}
+  };
+  class LedClient {
+    virtual void begin() {}
+    virtual void set(bool ready) {}
+  };
   enum {
     kCmdReset = 0xF0,           // mandatory
     kCmdAddressSet = 0xF1,      // mandatory
@@ -48,7 +57,7 @@ class JVSIO {
     kReportParamErrorIgnored = 0x03,
     kReportBusy = 0x04,
   };
-  JVSIO();
+  JVSIO(SenseClient sense, LedClient led);
   ~JVSIO();
 
   void begin();
@@ -70,6 +79,8 @@ class JVSIO {
   void sendSumErrorStatus();
   void sendOverflowStatus();
 
+  SenseClient sense_;
+  LedClient led_;
   uint8_t rx_data_[256];
   uint8_t rx_size_;
   uint8_t rx_read_ptr_;
@@ -81,4 +92,4 @@ class JVSIO {
   uint8_t tx_report_size_;
 };
 
-#endif  // !defined(__JVSIO__H__)
+#endif  // !defined(__JVSIO_H__)
