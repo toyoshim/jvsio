@@ -25,12 +25,12 @@ void dump(const char* str, uint8_t* data, size_t len) {
   Serial.println("");
 }
 
-void writeEscapedByte(JVSIO::DataClient& client, uint8_t data) {
+void writeEscapedByte(JVSIO::DataClient* client, uint8_t data) {
   if (data == kMarker || data == kSync) {
-    client.write(kMarker);
-    client.write(data - 1);
+    client->write(kMarker);
+    client->write(data - 1);
   } else {
-    client.write(data);
+    client->write(data);
   }
 }
 
@@ -70,7 +70,7 @@ uint8_t getCommandSize(uint8_t* command, uint8_t len) {
 
 }  // namespace
 
-JVSIO::JVSIO(DataClient data, SenseClient sense, LedClient led) :
+JVSIO::JVSIO(DataClient* data, SenseClient* sense, LedClient* led) :
     data_(data),
     sense_(sense),
     led_(led),
@@ -85,12 +85,11 @@ JVSIO::JVSIO(DataClient data, SenseClient sense, LedClient led) :
 JVSIO::~JVSIO() {}
 
 void JVSIO::begin() {
-  data_.setMode(INPUT);
-  sense_.begin();
+  data_->setMode(INPUT);
+  sense_->begin();
 }
 
 void JVSIO::end() {
-  data_.setMode(INPUT);
 }
 
 uint8_t* JVSIO::getNextCommand(uint8_t* len) {
@@ -179,18 +178,18 @@ void JVSIO::pushReport(uint8_t report) {
 }
 
 void JVSIO::senseNotReady() {
-  sense_.set(false);
-  led_.set(false);
+  sense_->set(false);
+  led_->set(false);
 }
 
 void JVSIO::senseReady() {
-  sense_.set(true);
-  led_.set(true);
+  sense_->set(true);
+  led_->set(true);
 }
 
 void JVSIO::receive() {
-  while (!rx_available_ && data_.available() > 0) {
-    uint8_t data = data_.read();
+  while (!rx_available_ && data_->available() > 0) {
+    uint8_t data = data_->read();
     if (data == kSync) {
       rx_size_ = 0;
       rx_receiving_ = true;
@@ -220,8 +219,6 @@ void JVSIO::receive() {
         rx_read_ptr_ = 2;  // Skip address and length
         rx_available_ = true;
         tx_report_size_ = 0;
-        // Switch to output (should be done in 100us)
-        data_.setMode(OUTPUT);
       } else {
         rx_size_ = 0;
       }
@@ -230,12 +227,12 @@ void JVSIO::receive() {
 }
 
 void JVSIO::sendStatus() {
-  data_.setMode(OUTPUT);
+  data_->setMode(OUTPUT);
 
   delayMicroseconds(100);
 
-  data_.startTransaction();
-  data_.write(kSync);
+  data_->startTransaction();
+  data_->write(kSync);
   uint8_t sum = 0;
 
   for (uint8_t i = 0; i <= tx_data_[1]; ++i) {
@@ -243,9 +240,9 @@ void JVSIO::sendStatus() {
     writeEscapedByte(data_, tx_data_[i]);
   }
   writeEscapedByte(data_, sum);
-  data_.endTransaction();
+  data_->endTransaction();
 
-  data_.setMode(INPUT);
+  data_->setMode(INPUT);
 
   rx_available_ = false;
   rx_receiving_ = false;

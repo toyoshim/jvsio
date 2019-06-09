@@ -67,7 +67,7 @@ class JVSIO {
     kReportParamErrorIgnored = 0x03,
     kReportBusy = 0x04,
   };
-  JVSIO(DataClient data, SenseClient sense, LedClient led);
+  JVSIO(DataClient* data, SenseClient* sense, LedClient* led);
   ~JVSIO();
 
   void begin();
@@ -89,9 +89,9 @@ class JVSIO {
   void sendSumErrorStatus();
   void sendOverflowStatus();
 
-  DataClient data_;
-  SenseClient sense_;
-  LedClient led_;
+  DataClient* data_;
+  SenseClient* sense_;
+  LedClient* led_;
   uint8_t rx_data_[256];
   uint8_t rx_size_;
   uint8_t rx_read_ptr_;
