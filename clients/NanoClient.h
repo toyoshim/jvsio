@@ -7,7 +7,7 @@
 #if !defined(__NanoClient_H__)
 #define __NanoClient_H__
 
-#include "JVSIO.h"
+#include "../JVSIO.h"
 
 // Data+: 0 (RXI)
 // Data-: 2

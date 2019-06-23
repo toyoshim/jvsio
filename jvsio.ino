@@ -8,7 +8,20 @@
 // as a git submodule.
 
 #include "JVSIO.h"
-#include "NanoClient.h"
+
+#define MIGHTY
+
+#ifdef MIGHTY
+# include "clients/MightyClient.cpp"
+// JVS pins for MightyCore TQFP44
+//  D8  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
+//  D10 - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)
+//  D15 - JVS Sense  => USB Type B Pin 1 (5V Pin in USB proper use)
+MightyDataClient data;
+MightySenseClient sense;
+JVSIO::LedClient led;
+#else
+# include "clients/NanoClient.cpp"
 // JVS pins for Arduino Nano/Uno
 //  D0  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
 //  D2  - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)
@@ -17,6 +30,8 @@
 NanoDataClient data;
 NanoSenseClient sense;
 NanoLedClient led;
+#endif
+
 JVSIO io(&data, &sense, &led);
 
 static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Arduino NANO/UNO";
@@ -24,6 +39,7 @@ static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Arduino NANO/UN
 void setup() {
   Serial.begin(115200);
   Serial.println(id);
+  delayMicroseconds(100000);
   io.begin();
 }
 
