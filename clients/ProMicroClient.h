@@ -3,7 +3,7 @@
 #if !defined(__ProMicroClient_H__)
 #define __ProMicroClient_H__
 
-#include "JVSIO.h"
+#include "../JVSIO.h"
 
 // Data+: 0 (RXI) (PD2)
 // Data-: 2       (PD1)

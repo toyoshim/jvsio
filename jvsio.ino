@@ -9,9 +9,12 @@
 
 #include "JVSIO.h"
 
-#define MIGHTY
+// Uncomment one of following define lines.
+// Otherwise, it builds for Arduino Nano.
+//#define MIGHTY
+//#define PROMICRO
 
-#ifdef MIGHTY
+#if defined(MIGHTY)
 # include "clients/MightyClient.cpp"
 // JVS pins for MightyCore TQFP44
 //  D8  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
@@ -21,6 +24,17 @@ MightyDataClient data;
 MightySenseClient sense;
 JVSIO::LedClient led;
 static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Mighty Core";
+#elif defined(PROMICRO)
+# include "clients/ProMicroClient.cpp"
+// JVS pins for SparkFun Pro Micro
+//  D0  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
+//  D2  - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)
+//  D9  - JVS Sense  => USB Type B Pin 1 (5V Pin in USB proper use)
+//  D21 - LED
+ProMicroDataClient data;
+ProMicroSenseClient sense;
+ProMicroLedClient led;
+static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for SparkFun Pro Micro";
 #else
 # include "clients/NanoClient.cpp"
 // JVS pins for Arduino Nano/Uno
