@@ -1,43 +1,48 @@
-// Copyright 2019 Takashi Toyoshima <toyoshim@gmail.com>. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+// JVSIO Client for SparkFun ProMicro
+// You must add Additional Board Manager to Arduino IDE.
+// See : https://learn.sparkfun.com/tutorials/pro-micro--fio-v3-hookup-guide
 
-#include "NanoClient.h"
+
+#include "ProMicroClient.h"
 
 #include "Arduino.h"
 
-int NanoDataClient::available() {
-  return Serial.available();
+// On ProMicro:
+// Serial = USB CDC serial
+// Serial1 = hardware serial port on PD2,PD3
+
+int ProMicroDataClient::available() {
+  return Serial1.available();
 }
 
-void NanoDataClient::startTransaction() {
+void ProMicroDataClient::startTransaction() {
   noInterrupts();
 }
 
-void NanoDataClient::endTransaction() {
+void ProMicroDataClient::endTransaction() {
   interrupts();
 }
 
-void NanoDataClient::setMode(int mode) {
+void ProMicroDataClient::setMode(int mode) {
   if (mode == INPUT) {
     pinMode(portNumPlus , INPUT);
     pinMode(portNumMinus, INPUT);
-    Serial.begin(115200);
+    Serial1.begin(115200);
   } else {
     digitalWrite(portNumPlus , HIGH);
     digitalWrite(portNumMinus, LOW);
     pinMode(portNumPlus , OUTPUT);
     pinMode(portNumMinus, OUTPUT);
-    Serial.end();
+    Serial1.end();
   }
 }
 
-uint8_t NanoDataClient::read() {
-  return Serial.read();
+uint8_t ProMicroDataClient::read() {
+  return Serial1.read();
 }
 
 // generate differential signal
-void NanoDataClient::write(uint8_t data) {
+void ProMicroDataClient::write(uint8_t data) {
   // 138t for each bit.
   // 16MHz / 138 is nearly equals to 115200bps.
   asm (
@@ -98,43 +103,42 @@ void NanoDataClient::write(uint8_t data) {
     // Stop bit
     "sec\n"         // 1t
     "rcall 1b\n"    // 3t
-    ://output operands
-    ://input operands
+    : //output operand
+    : //input operand
     [data]"r"(data),
     // maybe cannot use const variables to assembler immediate...
-    [portAddrDPlus]"I"(0x0b),  //0x0b=>PORTD @ ATmega328P
+    [portAddrDPlus]"I"(0x0b), //0x0b=>PORTD @ ATmega32U4
     [portAddrDMinus]"I"(0x0b),
-    [portBitDPlus]"I"(0), //PD0
-    [portBitDMinus]"I"(2) //PD2
+    [portBitDPlus]"I"(2), //PD2
+    [portBitDMinus]"I"(1) //PD1
     ); 
 }
-    
 
-void NanoSenseClient::begin() {
+void ProMicroSenseClient::begin() {
   // CTC mode
-  // Toggle output on matching the counter for OC2B (Pin 3)
-  TCCR2A = 0b00010010;
+  // Toggle output on matching the counter for OC1A (Pin 9)
+  TCCR1A = 0b01000000;
   // Count from 0 to 1
-  OCR2A = 1;
+  OCR1A = 1;
   // Stop
-  TCCR2B = (TCCR2B & ~0b111) | 0b000;
+  TCCR1B = (TCCR1B & ~0b111) | 0b000;
   // Run at CLK/1
-  TCCR2B = (TCCR2B & ~0b111) | 0b001;
+  TCCR1B = (TCCR1B & ~0b111) | 0b001;
   pinMode(portNum, OUTPUT);
   digitalWrite(portNum, LOW);
 }
 
-void NanoSenseClient::set(bool ready) {
+void ProMicroSenseClient::set(bool ready) {
   if (ready)
-    TCCR2A &= ~0b00010000;
+    TCCR1A &= ~0b01000000;
   else
-    TCCR2A |= 0b00010000;
+    TCCR1A |=  0b01000000;
 }
 
-void NanoLedClient::begin() {
+void ProMicroLedClient::begin() {
 }
 
-void NanoLedClient::set(bool ready) {
+void ProMicroLedClient::set(bool ready) {
   pinMode(portNum, OUTPUT);
   digitalWrite(portNum, ready ? HIGH : LOW);
 }

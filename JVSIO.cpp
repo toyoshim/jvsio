@@ -14,6 +14,9 @@ constexpr uint8_t kMarker = 0xD0;
 constexpr uint8_t kSync = 0xE0;
 
 void dump(const char* str, uint8_t* data, size_t len) {
+  // TODO : do Serial.begin();
+  // for Arduino series which have native USB CDC (=Serial),
+  //   such as Leonardo, ProMicro, etc. 
   Serial.print(str);
   Serial.print(": ");
   for (size_t i = 0; i < len; ++i) {

@@ -22,23 +22,23 @@
 //  Sense: See SenseClient implementation
 //  LED Ready: See LedClient implementation
 class JVSIO {
- public:
- class DataClient {
+public:
+  class DataClient {
   public:
-   virtual int available() { return 0; }
-   virtual void setMode(int mode) {}
-   virtual void startTransaction() {}
-   virtual void endTransaction() {}
-   virtual uint8_t read() { return 0; }
-   virtual void write(uint8_t data) {}
- };
+    virtual int available() { return 0; }
+    virtual void setMode(int mode) {}
+    virtual void startTransaction() {}
+    virtual void endTransaction() {}
+    virtual uint8_t read() { return 0; }
+    virtual void write(uint8_t data) {}
+  };
   class SenseClient {
-   public:
+  public:
     virtual void begin() {}
     virtual void set(bool ready) {}
   };
   class LedClient {
-   public:
+  public:
     virtual void begin() {}
     virtual void set(bool ready) {}
   };
@@ -77,7 +77,7 @@ class JVSIO {
 
   void pushReport(uint8_t report);
 
- private:
+private:
   void receive();
 
   void senseNotReady();

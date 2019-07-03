@@ -9,9 +9,11 @@
 
 #include "JVSIO.h"
 
-// Data+: 0 (RXI)
-// Data-: 2
+// Data+: 0 (RXI) (PD0)
+// Data-: 2       (PD2)
 class NanoDataClient : public JVSIO::DataClient {
+  const int portNumPlus = 0;
+  const int portNumMinus = 2;
   int available() override;
   void setMode(int mode) override;
   void startTransaction() override;
@@ -20,15 +22,16 @@ class NanoDataClient : public JVSIO::DataClient {
   void write(uint8_t data)override;
 };
  
-// Sense: 3 (PWM - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
+// Sense: 3 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
 class NanoSenseClient : public JVSIO::SenseClient {
- public:
+  const int portNum = 3;
   void begin() override;
   void set(bool ready) override;
 };
 
 // LED Ready: 13
 class NanoLedClient : public JVSIO::LedClient {
+  const int portNum = 13;
   void begin() override;
   void set(bool ready) override;
 };
