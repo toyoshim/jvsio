@@ -51,6 +51,8 @@ static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Arduino NANO/UN
 JVSIO io(&data, &sense, &led);
 
 void setup() {
+  // TODO : factor out following Serial initialization code into LogClient or
+  // something. See also another TODO in JVSIO.cpp - dump().
   Serial.begin(115200);
   Serial.println(id);
   delayMicroseconds(1000000);
