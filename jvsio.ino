@@ -20,6 +20,7 @@
 MightyDataClient data;
 MightySenseClient sense;
 JVSIO::LedClient led;
+static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Mighty Core";
 #else
 # include "clients/NanoClient.cpp"
 // JVS pins for Arduino Nano/Uno
@@ -30,16 +31,15 @@ JVSIO::LedClient led;
 NanoDataClient data;
 NanoSenseClient sense;
 NanoLedClient led;
+static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Arduino NANO/UNO";
 #endif
 
 JVSIO io(&data, &sense, &led);
 
-static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Arduino NANO/UNO";
-
 void setup() {
   Serial.begin(115200);
   Serial.println(id);
-  delayMicroseconds(100000);
+  delayMicroseconds(1000000);
   io.begin();
 }
 
