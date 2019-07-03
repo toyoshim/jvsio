@@ -106,11 +106,10 @@ void ProMicroDataClient::write(uint8_t data) {
     : //output operand
     : //input operand
     [data]"r"(data),
-    // maybe cannot use const variables to assembler immediate...
-    [portAddrDPlus]"I"(0x0b), //0x0b=>PORTD @ ATmega32U4
-    [portAddrDMinus]"I"(0x0b),
-    [portBitDPlus]"I"(2), //PD2
-    [portBitDMinus]"I"(1) //PD1
+    [portAddrDPlus]"I"(portAddrPlus),
+    [portAddrDMinus]"I"(portAddrMinus),
+    [portBitDPlus]"I"(portBitPlus),
+    [portBitDMinus]"I"(portBitMinus)
     ); 
 }
 

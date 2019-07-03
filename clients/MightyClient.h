@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <stdint.h>
-
 #if !defined(__MightyClient_H__)
 #define __MightyClient_H__
+
+#include <stdint.h>
 
 #include "../JVSIO.h"
 
@@ -17,7 +17,7 @@ class MightyDataClient : public JVSIO::DataClient {
   void startTransaction() override;
   void endTransaction() override;
   uint8_t read() override;
-  void write(uint8_t data)override;
+  void write(uint8_t data) override;
 };
  
 // Sense: 15 (PWM - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
