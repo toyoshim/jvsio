@@ -11,4 +11,5 @@ JVSIO is a library for Arduino to handle JVS - JAMMA Video Standard - Bus v3.
 
  - [iona](https://github.com/toyoshim/iona)
  - [iona-346](https://github.com/toyoshim/iona-346)
+ - [iona-js](https://github.com/toyoshim/iona-js)
  - (more ... let me know!)

@@ -101,11 +101,10 @@ void NanoDataClient::write(uint8_t data) {
     ://output operands
     ://input operands
     [data]"r"(data),
-    // maybe cannot use const variables to assembler immediate...
-    [portAddrDPlus]"I"(0x0b),  //0x0b=>PORTD @ ATmega328P
-    [portAddrDMinus]"I"(0x0b),
-    [portBitDPlus]"I"(0), //PD0
-    [portBitDMinus]"I"(2) //PD2
+    [portAddrDPlus]"I"(portAddrPlus),
+    [portAddrDMinus]"I"(portAddrMinus),
+    [portBitDPlus]"I"(portBitPlus),
+    [portBitDMinus]"I"(portBitMinus)
     ); 
 }
     
