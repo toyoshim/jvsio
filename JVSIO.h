@@ -36,6 +36,7 @@ public:
   public:
     virtual void begin() {}
     virtual void set(bool ready) {}
+    virtual bool is_ready() { return true; }
   };
   class LedClient {
   public:

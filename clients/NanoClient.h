@@ -11,7 +11,7 @@
 
 // Data+: 0 (RXI) (PD0)
 // Data-: 2       (PD2)
-class NanoDataClient : public JVSIO::DataClient {
+class NanoDataClient final : public JVSIO::DataClient {
   const int portNumPlus = 0;
   const int portNumMinus = 2;
   int available() override;
@@ -24,13 +24,21 @@ class NanoDataClient : public JVSIO::DataClient {
  
 // Sense: 3 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
 class NanoSenseClient : public JVSIO::SenseClient {
-  const int portNum = 3;
+ protected:
   void begin() override;
+ private:
+  const int portNum = 3;
   void set(bool ready) override;
 };
 
+// Downstream Sense: A5 (0V - ready, 5V - terminated, 2.5V - not ready)
+class NanoSenseClientSupportingDaisyChain : public NanoSenseClient {
+  void begin() override;
+  bool is_ready() override;
+};
+
 // LED Ready: 13
-class NanoLedClient : public JVSIO::LedClient {
+class NanoLedClient final : public JVSIO::LedClient {
   const int portNum = 13;
   void begin() override;
   void set(bool ready) override;

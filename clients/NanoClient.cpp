@@ -131,6 +131,16 @@ void NanoSenseClient::set(bool ready) {
     TCCR2A |= 0b00010000;
 }
 
+void NanoSenseClientSupportingDaisyChain::begin() {
+  NanoSenseClient::begin();
+  pinMode(A5, INPUT_PULLUP);
+}
+
+bool NanoSenseClientSupportingDaisyChain::is_ready() {
+  int val = analogRead(A5);
+  return val < 200 || 800 < val;  // Roughly 0-1V or 4-5V
+}
+
 void NanoLedClient::begin() {
 }
 

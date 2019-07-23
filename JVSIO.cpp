@@ -126,10 +126,13 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len) {
       dump("reset", nullptr, 0);
       break;
      case JVSIO::kCmdAddressSet:
-      senseReady();
-      address_ = rx_data_[rx_read_ptr_ + 1];
+      if (sense_->is_ready()) {
+        senseReady();
+        address_ = rx_data_[rx_read_ptr_ + 1];
+        dump("address", &rx_data_[rx_read_ptr_ + 1], 1);
+        rx_data_[0] = address_;  // update address field to send report.
+      }
       pushReport(JVSIO::kReportOk);
-      dump("address", &rx_data_[rx_read_ptr_ + 1], 1);
       break;
      case JVSIO::kCmdCommandRev:
       pushReport(JVSIO::kReportOk);
@@ -215,14 +218,18 @@ void JVSIO::receive() {
       uint8_t sum = 0;
       for (size_t i = 0; i < (rx_size_ - 1u); ++i)
         sum += rx_data_[i];
-      if (rx_data_[rx_size_ - 1] != sum) {
-        sendSumErrorStatus();
-        rx_size_ = 0;
-      } else if (rx_data_[0] == kBroadcastAddress || rx_data_[0] == address_) {
-        rx_read_ptr_ = 2;  // Skip address and length
-        rx_available_ = true;
-        tx_report_size_ = 0;
+      if (rx_data_[0] == kBroadcastAddress || rx_data_[0] == address_) {
+        // Broadcasrt, or for this device.
+        if (rx_data_[rx_size_ - 1] != sum) {
+          sendSumErrorStatus();
+          rx_size_ = 0;
+        } else {
+          rx_read_ptr_ = 2;  // Skip address and length
+          rx_available_ = true;
+          tx_report_size_ = 0;
+        }
       } else {
+        // For other devices.
         rx_size_ = 0;
       }
     }
@@ -230,6 +237,13 @@ void JVSIO::receive() {
 }
 
 void JVSIO::sendStatus() {
+  rx_available_ = false;
+  rx_receiving_ = false;
+
+  // Should not reply for broadcast commands.
+  if (kBroadcastAddress == rx_data_[0])
+    return;
+
   data_->setMode(OUTPUT);
 
   delayMicroseconds(100);
@@ -247,14 +261,11 @@ void JVSIO::sendStatus() {
 
   data_->setMode(INPUT);
 
-  rx_available_ = false;
-  rx_receiving_ = false;
-
   //dump("packet", rx_data_, rx_size_);
   //dump("status", tx_data_, tx_data_[1] + 1);
 }
 
-void JVSIO::sendOkStatus() {  
+void JVSIO::sendOkStatus() {
   if (tx_report_size_ > 253)
     return sendOverflowStatus();
   tx_data_[0] = kHostAddress;
@@ -263,7 +274,7 @@ void JVSIO::sendOkStatus() {
   sendStatus();
 }
 
-void JVSIO::sendUnknownCommandStatus() {  
+void JVSIO::sendUnknownCommandStatus() {
   if (tx_report_size_ > 253)
     return sendOverflowStatus();
   tx_data_[0] = kHostAddress;
