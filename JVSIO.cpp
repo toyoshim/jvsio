@@ -83,7 +83,9 @@ JVSIO::JVSIO(DataClient* data, SenseClient* sense, LedClient* led) :
     rx_escaping_(false),
     rx_available_(false),
     address_(kBroadcastAddress),
-    tx_report_size_(0) {}
+    new_address_(kBroadcastAddress),
+    tx_report_size_(0),
+    downstream_ready_(false) {}
 
 JVSIO::~JVSIO() {}
 
@@ -126,11 +128,9 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len) {
       dump("reset", nullptr, 0);
       break;
      case JVSIO::kCmdAddressSet:
-      if (sense_->is_ready()) {
-        senseReady();
-        address_ = rx_data_[rx_read_ptr_ + 1];
+      if (downstream_ready_) {
+        new_address_ = rx_data_[rx_read_ptr_ + 1];
         dump("address", &rx_data_[rx_read_ptr_ + 1], 1);
-        rx_data_[0] = address_;  // update address field to send report.
       }
       pushReport(JVSIO::kReportOk);
       break;
@@ -200,6 +200,7 @@ void JVSIO::receive() {
       rx_size_ = 0;
       rx_receiving_ = true;
       rx_escaping_ = false;
+      downstream_ready_ = sense_->is_ready();
       continue;
     }
     if (!rx_receiving_)
@@ -241,13 +242,33 @@ void JVSIO::sendStatus() {
   rx_receiving_ = false;
 
   // Should not reply for broadcast commands.
-  if (kBroadcastAddress == rx_data_[0])
+  if (kBroadcastAddress == address_ && kBroadcastAddress == new_address_)
     return;
 
+  // Direction should be changed within 100usec from sending/receiving a packet.
   data_->setMode(OUTPUT);
 
+  // Spec requires 100usec interval at minimum between each packet.
+  // But response should be sent within 1msec from the last byte received.
   delayMicroseconds(100);
 
+  // Address is just assigned.
+  // This timing to negate the sense signal is subtle. The spec expects this
+  // signal should be done in 1msec. This place meets this requiment, but if
+  // this action was too quick, the direct upstream client may misunderstand
+  // that the last address command was for the upstream client. So, this signal
+  // should be changed lately as we can as possible within the spec requiment.
+  // However, as described below, sending response packet may take over 1msec.
+  // Thus, this is the last place to negate the signal in a simle way.
+  if (kBroadcastAddress != new_address_) {
+    address_ = new_address_;
+    new_address_ = kBroadcastAddress;
+    senseReady();
+  }
+
+  // We can send about 14 bytes per 1msec at maximum. So, it will take over 18
+  // msec to send the largest packet. Actual packet will have interval time
+  // between each byte. In total, it may take more time.
   data_->startTransaction();
   data_->write(kSync);
   uint8_t sum = 0;

@@ -100,8 +100,10 @@ private:
   bool rx_escaping_;
   bool rx_available_;
   uint8_t address_;
+  uint8_t new_address_;
   uint8_t tx_data_[256];
   uint8_t tx_report_size_;
+  bool downstream_ready_;
 };
 
 #endif  // !defined(__JVSIO_H__)
