@@ -219,8 +219,9 @@ void JVSIO::receive() {
       uint8_t sum = 0;
       for (size_t i = 0; i < (rx_size_ - 1u); ++i)
         sum += rx_data_[i];
-      if (rx_data_[0] == kBroadcastAddress || rx_data_[0] == address_) {
-        // Broadcasrt, or for this device.
+      if ((rx_data_[0] == kBroadcastAddress &&
+          rx_data_[2] == JVSIO::kCmdReset) || rx_data_[0] == address_) {
+        // Broadcasrt or for this device.
         if (rx_data_[rx_size_ - 1] != sum) {
           sendSumErrorStatus();
           rx_size_ = 0;
