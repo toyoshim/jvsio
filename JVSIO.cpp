@@ -126,7 +126,8 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len) {
       rx_available_ = false;
       rx_receiving_ = false;
       dump("reset", nullptr, 0);
-      break;
+      rx_read_ptr_ += command_size;
+      return &rx_data_[rx_read_ptr_ - command_size];
      case JVSIO::kCmdAddressSet:
       if (downstream_ready_) {
         new_address_ = rx_data_[rx_read_ptr_ + 1];
@@ -164,7 +165,6 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len) {
       *len = command_size;
       rx_read_ptr_ += command_size;
       return &rx_data_[rx_read_ptr_ - command_size];
-
      default:
       sendUnknownCommandStatus();
       break;
