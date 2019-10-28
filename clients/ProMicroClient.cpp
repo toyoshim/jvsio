@@ -110,7 +110,7 @@ void ProMicroDataClient::write(uint8_t data) {
     [portAddrDMinus]"I"(portAddrMinus),
     [portBitDPlus]"I"(portBitPlus),
     [portBitDMinus]"I"(portBitMinus)
-    ); 
+    );
 }
 
 void ProMicroSenseClient::begin() {

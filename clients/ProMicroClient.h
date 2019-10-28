@@ -31,9 +31,9 @@ class ProMicroSenseClient : public JVSIO::SenseClient {
   void set(bool ready) override;
 };
 
-// LED Ready: 21 (note : ProMicro don't have onboard LED)
+// LED Ready: 17 (D17 RX LED)
 class ProMicroLedClient : public JVSIO::LedClient {
-  static constexpr uint8_t portNum = 21;
+  static constexpr uint8_t portNum = 17;
 
   void begin() override;
   void set(bool ready) override;
