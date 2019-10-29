@@ -31,6 +31,13 @@ class ProMicroSenseClient : public JVSIO::SenseClient {
   void set(bool ready) override;
 };
 
+// Downstream Sense: A3 (0V - ready, 5V - terminated, 2.5V - not ready)
+class ProMicroSenseClientSupportingDaisyChain final
+    : public ProMicroSenseClient {
+  void begin() override;
+  bool is_ready() override;
+};
+
 // LED Ready: 17 (D17 RX LED)
 class ProMicroLedClient : public JVSIO::LedClient {
   static constexpr uint8_t portNum = 17;

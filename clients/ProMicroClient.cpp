@@ -134,6 +134,16 @@ void ProMicroSenseClient::set(bool ready) {
     TCCR1A |=  0b01000000;
 }
 
+void ProMicroSenseClientSupportingDaisyChain::begin() {
+  ProMicroSenseClient::begin();
+  pinMode(A3, INPUT_PULLUP);
+}
+
+bool ProMicroSenseClientSupportingDaisyChain::is_ready() {
+  int val = analogRead(A3);
+  return val < 200 || 800 < val;  // Roughly 0-1V or 4-5V
+}
+
 void ProMicroLedClient::begin() {
 }
 
