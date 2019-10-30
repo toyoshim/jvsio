@@ -105,9 +105,8 @@ void NanoDataClient::write(uint8_t data) {
     [portAddrDMinus]"I"(portAddrMinus),
     [portBitDPlus]"I"(portBitPlus),
     [portBitDMinus]"I"(portBitMinus)
-    ); 
+    );
 }
-    
 
 void NanoSenseClient::begin() {
   // CTC mode

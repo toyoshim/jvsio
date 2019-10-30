@@ -19,7 +19,7 @@ class MightyDataClient : public JVSIO::DataClient {
   uint8_t read() override;
   void write(uint8_t data) override;
 };
- 
+
 // Sense: 15 (PWM - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
 class MightySenseClient : public JVSIO::SenseClient {
  public:

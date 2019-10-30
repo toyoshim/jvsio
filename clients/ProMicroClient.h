@@ -22,7 +22,7 @@ class ProMicroDataClient : public JVSIO::DataClient {
   uint8_t read() override;
   void write(uint8_t data) override;
 };
- 
+
 // Sense: 9 (PWM OC1A - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
 class ProMicroSenseClient : public JVSIO::SenseClient {
  protected:

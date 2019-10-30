@@ -30,7 +30,7 @@ static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Mighty Core";
 //  D0  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
 //  D2  - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)
 //  D9  - JVS Sense  => USB Type B Pin 1 (5V Pin in USB proper use)
-//  D21 - LED
+//  D17 - LED
 ProMicroDataClient data;
 ProMicroSenseClient sense;
 ProMicroLedClient led;

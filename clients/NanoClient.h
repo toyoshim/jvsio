@@ -26,7 +26,7 @@ class NanoDataClient final : public JVSIO::DataClient {
   uint8_t read() override;
   void write(uint8_t data) override;
 };
- 
+
 // Sense: 3 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
 class NanoSenseClient : public JVSIO::SenseClient {
  protected:
