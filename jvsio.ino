@@ -120,6 +120,7 @@ void loop() {
     }
     break;
    case JVSIO::kCmdCoinSub:
+   case JVSIO::kCmdCoinAdd:
     io.pushReport(JVSIO::kReportOk);
     break;
    case JVSIO::kCmdDriverOutput:

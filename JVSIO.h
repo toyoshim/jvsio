@@ -62,6 +62,7 @@ public:
 
     kCmdCoinSub = 0x30,
     kCmdDriverOutput = 0x32,
+    kCmdCoinAdd = 0x35,
 
     kReportOk = 0x01,
     kReportParamErrorNoResponse = 0x02,

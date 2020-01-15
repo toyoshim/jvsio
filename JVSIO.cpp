@@ -58,6 +58,7 @@ uint8_t getCommandSize(uint8_t* command, uint8_t len) {
    case JVSIO::kCmdRetry:
     return 1;
    case JVSIO::kCmdCoinSub:
+   case JVSIO::kCmdCoinAdd:
     return 4;
    case JVSIO::kCmdDriverOutput:
     return command[1] + 2;
@@ -162,6 +163,7 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len) {
      case JVSIO::kCmdAnalogInput:
      case JVSIO::kCmdCoinSub:
      case JVSIO::kCmdDriverOutput:
+     case JVSIO::kCmdCoinAdd:
       *len = command_size;
       rx_read_ptr_ += command_size;
       return &rx_data_[rx_read_ptr_ - command_size];
