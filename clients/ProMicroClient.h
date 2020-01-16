@@ -3,6 +3,8 @@
 #if !defined(__ProMicroClient_H__)
 #define __ProMicroClient_H__
 
+// TODO: Migrate to use BaseDataClient template.
+
 #include "../JVSIO.h"
 
 // Data+: 0 (RXI) (PD2)
