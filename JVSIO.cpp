@@ -72,21 +72,25 @@ uint8_t getCommandSize(uint8_t* command, uint8_t len) {
   return size;
 }
 
+bool matchAddress(uint8_t target, uint8_t* address, uint8_t nodes) {
+  for (uint8_t i = 0; i < nodes; ++i) {
+    if (target == address[i])
+      return true;
+  }
+  return false;
+}
+
 }  // namespace
 
-JVSIO::JVSIO(DataClient* data, SenseClient* sense, LedClient* led) :
-    data_(data),
-    sense_(sense),
-    led_(led),
-    rx_size_(0),
-    rx_read_ptr_(0),
-    rx_receiving_(false),
-    rx_escaping_(false),
-    rx_available_(false),
-    address_(kBroadcastAddress),
-    new_address_(kBroadcastAddress),
-    tx_report_size_(0),
-    downstream_ready_(false) {}
+JVSIO::JVSIO(DataClient *data, SenseClient *sense, LedClient *led,
+             uint8_t nodes)
+    : data_(data), sense_(sense), led_(led), nodes_(nodes), rx_size_(0),
+      rx_read_ptr_(0), rx_receiving_(false), rx_escaping_(false),
+      rx_available_(false), new_address_(kBroadcastAddress), tx_report_size_(0),
+      downstream_ready_(false) {
+  for (uint8_t i = 0; i < nodes_; ++i)
+    address_[i] = kBroadcastAddress;
+}
 
 JVSIO::~JVSIO() {}
 
@@ -98,12 +102,19 @@ void JVSIO::begin() {
 void JVSIO::end() {
 }
 
-uint8_t* JVSIO::getNextCommand(uint8_t* len) {
+uint8_t* JVSIO::getNextCommand(uint8_t* len, uint8_t* node) {
   for (;;) {
     receive();
     if (!rx_available_)
       return nullptr;
 
+    if (node != nullptr) {
+      *node = 255;
+      for (uint8_t i = 0; i < nodes_; ++i) {
+        if (address_[i] == rx_data_[0])
+          *node = i;
+      }
+    }
     uint8_t max_command_size = rx_data_[1] - rx_read_ptr_ + 1;
     if (!max_command_size) {
       sendOkStatus();
@@ -123,7 +134,8 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len) {
     switch (rx_data_[rx_read_ptr_]) {
      case JVSIO::kCmdReset:
       senseNotReady();
-      address_ = kBroadcastAddress;
+      for (uint8_t i = 0; i < nodes_; ++i)
+        address_[i] = kBroadcastAddress;
       rx_available_ = false;
       rx_receiving_ = false;
       dump("reset", nullptr, 0);
@@ -222,7 +234,8 @@ void JVSIO::receive() {
       for (size_t i = 0; i < (rx_size_ - 1u); ++i)
         sum += rx_data_[i];
       if ((rx_data_[0] == kBroadcastAddress &&
-          rx_data_[2] == JVSIO::kCmdReset) || rx_data_[0] == address_) {
+           rx_data_[2] == JVSIO::kCmdReset) ||
+          matchAddress(rx_data_[0], address_, nodes_)) {
         // Broadcasrt or for this device.
         if (rx_data_[rx_size_ - 1] != sum) {
           sendSumErrorStatus();
@@ -245,7 +258,8 @@ void JVSIO::sendStatus() {
   rx_receiving_ = false;
 
   // Should not reply for broadcast commands.
-  if (kBroadcastAddress == address_ && kBroadcastAddress == new_address_)
+  if (kBroadcastAddress == address_[nodes_ - 1] &&
+      kBroadcastAddress == new_address_)
     return;
 
   // Direction should be changed within 100usec from sending/receiving a packet.
@@ -264,9 +278,15 @@ void JVSIO::sendStatus() {
   // However, as described below, sending response packet may take over 1msec.
   // Thus, this is the last place to negate the signal in a simle way.
   if (kBroadcastAddress != new_address_) {
-    address_ = new_address_;
+    for (uint8_t i = 0; i < nodes_; ++i) {
+      if (address_[i] != kBroadcastAddress)
+        continue;
+      address_[i] = new_address_;
+      if (i == (nodes_ - 1))
+        senseReady();
+      break;
+    }
     new_address_ = kBroadcastAddress;
-    senseReady();
   }
 
   // We can send about 14 bytes per 1msec at maximum. So, it will take over 18

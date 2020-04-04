@@ -69,13 +69,14 @@ public:
     kReportParamErrorIgnored = 0x03,
     kReportBusy = 0x04,
   };
-  JVSIO(DataClient* data, SenseClient* sense, LedClient* led);
+  JVSIO(DataClient *data, SenseClient *sense, LedClient *led,
+        uint8_t nodes = 1);
   ~JVSIO();
 
   void begin();
   void end();
 
-  uint8_t* getNextCommand(uint8_t* len);
+  uint8_t* getNextCommand(uint8_t* len, uint8_t* node = nullptr);
 
   void pushReport(uint8_t report);
 
@@ -94,13 +95,14 @@ private:
   DataClient* data_;
   SenseClient* sense_;
   LedClient* led_;
+  uint8_t nodes_;
   uint8_t rx_data_[256];
   uint8_t rx_size_;
   uint8_t rx_read_ptr_;
   bool rx_receiving_;
   bool rx_escaping_;
   bool rx_available_;
-  uint8_t address_;
+  uint8_t address_[2];
   uint8_t new_address_;
   uint8_t tx_data_[256];
   uint8_t tx_report_size_;
