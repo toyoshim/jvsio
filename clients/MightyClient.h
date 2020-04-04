@@ -5,6 +5,8 @@
 #if !defined(__MightyClient_H__)
 #define __MightyClient_H__
 
+// TODO: Migrate to use BaseDataClient template.
+
 #include <stdint.h>
 
 #include "../JVSIO.h"

@@ -2,23 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#if !defined(__NanoClient_H__)
-#define __NanoClient_H__
+#if !defined(__MegaClient_H__)
+#define __MegaClient_H__
 
 #include "BaseClient.h"
 
-// Data+: 0 (RXI) (PD0)
-// Data-: 2       (PD2)
-using NanoDataClient = BaseDataClient<0, 2, 0, 2, 0x0b, 0x0b>;
+// Data+: 2 PD2 ( RXDI/INT2 )
+// Data-: 3 PD3 ( TXD1/INT3 )
+using MegaDataClient = BaseDataClient<0, 1, 0, 1, 0x0e, 0x0e>;
 
 // Sense: 3 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
-using NanoSenseClient = BaseSenseClient<3>;
+using MegaSenseClient = BaseSenseClient<3>;
 
 // Downstream Sense: A5 (0V - ready, 5V - terminated, 2.5V - not ready)
-using NanoSenseClientSupportingDaisyChain =
+using MegaSenseClientSupportingDaisyChain =
     BaseSenseClientSupportingDaisyChain<3, A5>;
 
 // LED Ready: 13
-using NanoLedClient = BaseLedClient<13>;
+using MegaLedClient = BaseLedClient<13>;
 
-#endif  // !defined(__NanoClient_H__)
+#endif  // !defined(__MegaClient_H__)
