@@ -11,8 +11,8 @@
 // Data-: 3 PD3 ( TXD1/INT3 )
 using MegaDataClient = BaseDataClient<0, 1, 0, 1, 0x0e, 0x0e>;
 
-// Sense: 3 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
-using MegaSenseClient = BaseSenseClient<3>;
+// Sense: 9 PH6 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
+using MegaSenseClient = BaseSenseClient<9>;
 
 // Downstream Sense: A5 (0V - ready, 5V - terminated, 2.5V - not ready)
 using MegaSenseClientSupportingDaisyChain =
