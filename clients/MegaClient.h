@@ -5,6 +5,10 @@
 #if !defined(__MegaClient_H__)
 #define __MegaClient_H__
 
+#define TCCRA_REG TCCR2A
+#define TCCRB_REG TCCR2B
+#define OCRA_REG OCR2A
+
 #include "BaseClient.h"
 
 // Data+: 2 PD2 ( RXDI/INT2 )
@@ -12,7 +16,7 @@
 using MegaDataClient = BaseDataClient<0, 1, 0, 1, 0x0e, 0x0e>;
 
 // Sense: 9 PH6 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
-using MegaSenseClient = BaseSenseClient<9>;
+using MegaSenseClient = BaseSenseClient<9, 0b00010010, 0b00010000, 1>;
 
 // Downstream Sense: A5 (0V - ready, 5V - terminated, 2.5V - not ready)
 using MegaSenseClientSupportingDaisyChain =

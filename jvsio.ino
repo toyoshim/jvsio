@@ -15,7 +15,7 @@
 //#define PROMICRO
 
 #if defined(MIGHTY)
-# include "clients/MightyClient.cpp"
+# include "clients/MightyClient.h"
 // JVS pins for MightyCore TQFP44
 //  D8  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
 //  D10 - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)
@@ -25,7 +25,7 @@ MightySenseClient sense;
 JVSIO::LedClient led;
 static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Mighty Core";
 #elif defined(PROMICRO)
-# include "clients/ProMicroClient.cpp"
+# include "clients/ProMicroClient.h"
 // JVS pins for SparkFun Pro Micro
 //  D0  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
 //  D2  - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)
@@ -36,7 +36,7 @@ ProMicroSenseClient sense;
 ProMicroLedClient led;
 static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for SparkFun Pro Micro";
 #else
-# include "clients/NanoClient.cpp"
+# include "clients/NanoClient.h"
 // JVS pins for Arduino Nano/Uno
 //  D0  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
 //  D2  - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)

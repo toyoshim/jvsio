@@ -20,23 +20,25 @@ class BaseDataClient final : public JVSIO::DataClient {
   static constexpr uint8_t portAddrPlus  = ADDR_PLUS;
   static constexpr uint8_t portAddrMinus = ADDR_MINUS;
 
-  int available() override { return Serial.available(); }
+  HardwareSerial& GetSerial() { return Serial; }
+
+  int available() override { return GetSerial().available(); }
   void setMode(int mode) override {
     if (mode == INPUT) {
       pinMode(portNumPlus, INPUT);
       pinMode(portNumMinus, INPUT);
-      Serial.begin(115200);
+      GetSerial().begin(115200);
     } else {
       digitalWrite(portNumPlus, HIGH);
       digitalWrite(portNumMinus, LOW);
       pinMode(portNumPlus, OUTPUT);
       pinMode(portNumMinus, OUTPUT);
-      Serial.end();
+      GetSerial().end();
     }
   }
   void startTransaction() override { noInterrupts(); }
   void endTransaction() override { interrupts(); }
-  uint8_t read() override { return Serial.read(); }
+  uint8_t read() override { return GetSerial().read(); }
   void write(uint8_t data) override {
     // 138t for each bit.
     // 16MHz / 138 is nearly equals to 115200bps.
@@ -105,19 +107,21 @@ class BaseDataClient final : public JVSIO::DataClient {
   }
 };
 
-template <int PORT>
+template <int PORT, int TCCRA_VAL, int TCCRA_FLIP, int OCRA_VAL>
 class BaseSenseClient : public JVSIO::SenseClient {
  protected:
   void begin() override {
     // CTC mode
     // Toggle output on matching the counter for OC2B (Pin 3)
-    TCCR2A = 0b00010010;
+    TCCRA_REG = TCCRA_VAL;
     // Count from 0 to 1
-    OCR2A = 1;
+    OCRA_REG = OCRA_VAL;
+#if defined(TCCB_REG)
     // Stop
-    TCCR2B = (TCCR2B & ~0b111) | 0b000;
+    TCCRB_REG = (TCCRB_REG & ~0b111) | 0b000;
     // Run at CLK/1
-    TCCR2B = (TCCR2B & ~0b111) | 0b001;
+    TCCRB_REG = (TCCRB_REG & ~0b111) | 0b001;
+#endif
     pinMode(portNum, OUTPUT);
     digitalWrite(portNum, LOW);
   }
@@ -127,16 +131,16 @@ class BaseSenseClient : public JVSIO::SenseClient {
 
   void set(bool ready) override {
     if (ready)
-      TCCR2A &= ~0b00010000;
+      TCCRA_REG &= ~TCCRA_FLIP;
     else
-      TCCR2A |= 0b00010000;
+      TCCRA_REG |= TCCRA_FLIP;
   }
 };
 
-template <int PORT, int SENSE>
-class BaseSenseClientSupportingDaisyChain final : public BaseSenseClient<PORT> {
+template <int PORT, int TCCRA_VAL, int TCCRA_FLIP, int OCRA_VAL, int SENSE>
+class BaseSenseClientSupportingDaisyChain final : public BaseSenseClient<PORT, TCCRA_VAL, TCCRA_FLIP, OCRA_VAL> {
   void begin() override {
-    BaseSenseClient<PORT>::begin();
+    BaseSenseClient<PORT, TCCRA_VAL, TCCRA_FLIP, OCRA_VAL>::begin();
     pinMode(SENSE, INPUT_PULLUP);
   }
 

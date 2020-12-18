@@ -5,6 +5,10 @@
 #if !defined(__NanoClient_H__)
 #define __NanoClient_H__
 
+#define TCCRA_REG TCCR2A
+#define TCCRB_REG TCCR2B
+#define OCRA_REG OCR2A
+
 #include "BaseClient.h"
 
 // Data+: 0 (RXI) (PD0)
@@ -12,11 +16,11 @@
 using NanoDataClient = BaseDataClient<0, 2, 0, 2, 0x0b, 0x0b>;
 
 // Sense: 3 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
-using NanoSenseClient = BaseSenseClient<3>;
+using NanoSenseClient = BaseSenseClient<3, 0b00010010, 0b00010000, 1>;
 
 // Downstream Sense: A5 (0V - ready, 5V - terminated, 2.5V - not ready)
 using NanoSenseClientSupportingDaisyChain =
-    BaseSenseClientSupportingDaisyChain<3, A5>;
+    BaseSenseClientSupportingDaisyChain<3, 0b00010010, 0b00010000, 1, A5>;
 
 // LED Ready: 13
 using NanoLedClient = BaseLedClient<13>;

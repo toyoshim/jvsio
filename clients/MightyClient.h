@@ -5,28 +5,18 @@
 #if !defined(__MightyClient_H__)
 #define __MightyClient_H__
 
-// TODO: Migrate to use BaseDataClient template.
+// For ATmega32 / MightyCore
 
-#include <stdint.h>
+#define TCCRA_REG TCCR2
+#define OCRA_REG OCR2
 
-#include "../JVSIO.h"
+#include "BaseClient.h"
 
 // Data+: 8 (RXI)
 // Data-: 10
-class MightyDataClient : public JVSIO::DataClient {
-  int available() override;
-  void setMode(int mode) override;
-  void startTransaction() override;
-  void endTransaction() override;
-  uint8_t read() override;
-  void write(uint8_t data) override;
-};
+using MightyDataClient = BaseDataClient<8, 10, 0, 2, 0x12, 0x12>;
 
 // Sense: 15 (PWM - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
-class MightySenseClient : public JVSIO::SenseClient {
- public:
-  void begin() override;
-  void set(bool ready) override;
-};
+using MightySenseClient = BaseSenseClient<15, 0x19, 0b00010000, 0>;
 
 #endif  // !defined(__MightyClient_H__)
