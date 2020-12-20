@@ -13,6 +13,7 @@
 template <int NUM_PLUS, int NUM_MINUS, int BIT_PLUS, int BIT_MINUS,
           int ADDR_PLUS, int ADDR_MINUS>
 class BaseDataClient final : public JVSIO::DataClient {
+ private:
   static constexpr uint8_t portNumPlus   = NUM_PLUS;
   static constexpr uint8_t portNumMinus  = NUM_MINUS;
   static constexpr uint8_t portBitPlus   = BIT_PLUS;
@@ -109,7 +110,7 @@ class BaseDataClient final : public JVSIO::DataClient {
 
 template <int PORT, int TCCRA_VAL, int TCCRA_FLIP, int OCRA_VAL>
 class BaseSenseClient : public JVSIO::SenseClient {
- protected:
+ private:
   void begin() override {
     // CTC mode
     // Toggle output on matching the counter for OC2B (Pin 3)
@@ -126,7 +127,6 @@ class BaseSenseClient : public JVSIO::SenseClient {
     digitalWrite(portNum, LOW);
   }
 
- private:
   static constexpr uint8_t portNum = PORT;
 
   void set(bool ready) override {
@@ -139,6 +139,7 @@ class BaseSenseClient : public JVSIO::SenseClient {
 
 template <int PORT, int TCCRA_VAL, int TCCRA_FLIP, int OCRA_VAL, int SENSE>
 class BaseSenseClientSupportingDaisyChain final : public BaseSenseClient<PORT, TCCRA_VAL, TCCRA_FLIP, OCRA_VAL> {
+ private:
   void begin() override {
     BaseSenseClient<PORT, TCCRA_VAL, TCCRA_FLIP, OCRA_VAL>::begin();
     pinMode(SENSE, INPUT_PULLUP);
@@ -146,12 +147,33 @@ class BaseSenseClientSupportingDaisyChain final : public BaseSenseClient<PORT, T
 
   bool is_ready() override {
     int val = analogRead(SENSE);
-    return val < 200 || 800 < val; // Roughly 0-1V or 4-5V
+    return val < 200 || 800 < val;  // Roughly 0-1V or 4-5V
+  }
+};
+
+template <int PORT>
+class BaseHostSenseClient final : public JVSIO::SenseClient {
+ private:
+  void begin() override {
+    pinMode(PORT, INPUT_PULLUP);
+  }
+  // 0.0V: ready.
+  // 2.5V: connected (address configuration is still needed)
+  // 5.0V: disconnected.
+  bool is_ready() override {
+    int val = analogRead(PORT);
+    return val < 200;  // Roughly 0-1V
+  }
+  bool is_connected() override {
+    int val = analogRead(PORT);
+    float f = val * 5.0 / 1023.0;
+    return val < 700;  // Roughly 0-3.5V
   }
 };
 
 template <int PORT>
 class BaseLedClient final : public JVSIO::LedClient {
+ private:
   static constexpr uint8_t portNum = PORT;
 
   void begin() override {}

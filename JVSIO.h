@@ -37,6 +37,7 @@ public:
     virtual void begin() {}
     virtual void set(bool ready) {}
     virtual bool is_ready() { return true; }
+    virtual bool is_connected() { return true; }
   };
   class LedClient {
   public:
@@ -76,16 +77,22 @@ public:
   void begin();
   void end();
 
+  // For client nodes.
   uint8_t* getNextCommand(uint8_t* len, uint8_t* node = nullptr);
-
   void pushReport(uint8_t report);
+
+  // For hosts.
+  void boot();
+  bool sendAndReceive(uint8_t* packet, uint8_t** ack, uint8_t* ack_len);
 
 private:
   void receive();
+  uint8_t* receiveStatus(uint8_t* len);
 
   void senseNotReady();
   void senseReady();
 
+  void sendPacket(uint8_t* packet);
   void sendStatus();
   void sendOkStatus();
   void sendUnknownCommandStatus();
@@ -102,6 +109,7 @@ private:
   bool rx_receiving_;
   bool rx_escaping_;
   bool rx_available_;
+  bool rx_error_;
   uint8_t address_[2];
   uint8_t new_address_;
   uint8_t tx_data_[256];

@@ -22,6 +22,9 @@ using NanoSenseClient = BaseSenseClient<3, 0b00010010, 0b00010000, 1>;
 using NanoSenseClientSupportingDaisyChain =
     BaseSenseClientSupportingDaisyChain<3, 0b00010010, 0b00010000, 1, A5>;
 
+// Host Sense: A0 (0V - ready, 5V - disconnected, 2.5V - connected)
+using NanoHostSenseClient = BaseHostSenseClient<A0>;
+
 // LED Ready: 13
 using NanoLedClient = BaseLedClient<13>;
 
