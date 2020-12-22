@@ -288,7 +288,9 @@ void JVSIO::receive() {
           matchAddress(rx_data_[0], address_, nodes_)) {
         // Broadcasrt or for this device.
         if (rx_data_[rx_size_ - 1] != sum) {
-          if (address_ == kHostAddress) {
+          if (address_[0] == kHostAddress) {
+            // Host mode does not need to send an error response back.
+            // Set `rx_error_` flag instead for later references.
             rx_error_ = true;
           } else {
             sendSumErrorStatus();
