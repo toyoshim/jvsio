@@ -83,7 +83,7 @@ public:
 
   // For hosts.
   void boot();
-  bool sendAndReceive(uint8_t* packet, uint8_t** ack, uint8_t* ack_len);
+  bool sendAndReceive(const uint8_t* packet, uint8_t** ack, uint8_t* ack_len);
 
 private:
   void receive();
@@ -92,7 +92,7 @@ private:
   void senseNotReady();
   void senseReady();
 
-  void sendPacket(uint8_t* packet);
+  void sendPacket(const uint8_t* packet);
   void sendStatus();
   void sendOkStatus();
   void sendUnknownCommandStatus();

@@ -238,7 +238,7 @@ void JVSIO::boot() {
   }
 }
 
-bool JVSIO::sendAndReceive(uint8_t* packet, uint8_t** ack, uint8_t* ack_len) {
+bool JVSIO::sendAndReceive(const uint8_t* packet, uint8_t** ack, uint8_t* ack_len) {
   data_->setMode(OUTPUT);
   sendPacket(packet);
   *ack = receiveStatus(ack_len);
@@ -324,7 +324,7 @@ uint8_t* JVSIO::receiveStatus(uint8_t* len) {
   return &rx_data_[2];
 }
 
-void JVSIO::sendPacket(uint8_t* data) {
+void JVSIO::sendPacket(const uint8_t* data) {
   data_->startTransaction();
   data_->write(kSync);
   uint8_t sum = 0;
