@@ -20,7 +20,7 @@ using MegaSenseClient = BaseSenseClient<9, 0b00010010, 0b00010000, 1>;
 
 // Downstream Sense: A5 (0V - ready, 5V - terminated, 2.5V - not ready)
 using MegaSenseClientSupportingDaisyChain =
-    BaseSenseClientSupportingDaisyChain<3, A5>;
+    BaseSenseClientSupportingDaisyChain<9, 0b00010010, 0b00010000, 1, A5>;
 
 // LED Ready: 13
 using MegaLedClient = BaseLedClient<13>;
