@@ -9,7 +9,8 @@ JVSIO is a library for Arduino to handle JVS - JAMMA Video Standard - Bus v3.
 
 ## Applications that uses this library
 
- - [iona](https://github.com/toyoshim/iona)
- - [iona-346](https://github.com/toyoshim/iona-346)
- - [iona-js](https://github.com/toyoshim/iona-js)
+ - [iona](https://github.com/toyoshim/iona) for Arduino
+ - [iona-346](https://github.com/toyoshim/iona-346) for Arduino + SEGA Saturn Pad
+ - [iona-js](https://github.com/toyoshim/iona-js) for the original ATMEGA32A based board + JAMMA
+ - [iona-us](https://github.com/toyoshim/iona-us) for CH559 + JAMMA / USB(plan)
  - (more ... let me know!)
