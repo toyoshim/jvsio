@@ -38,7 +38,7 @@ enum {
 #ifdef __SDCC
 #pragma save
 #pragma disable_warning 85
-#include "../ch559.h"
+#include "ch559.h"
 #endif
 static void dump(const char* str, uint8_t* data, size_t len) {
   // TODO: Define DebugClient.
