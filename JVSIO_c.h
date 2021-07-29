@@ -82,7 +82,7 @@ struct JVSIO_Lib {
   void (*pushReport)(struct JVSIO_Lib* lib, uint8_t report);
 
   // For hosts.
-  void (*boot)(struct JVSIO_Lib* lib);
+  bool (*boot)(struct JVSIO_Lib* lib, bool block);
   bool (*sendAndReceive)(
       struct JVSIO_Lib* lib,
       const uint8_t* packet,

@@ -403,7 +403,7 @@ static bool sendAndReceive(struct JVSIO_Lib* lib, const uint8_t* packet, uint8_t
   return *ack != NULL;
 }
 
-static void boot(struct JVSIO_Lib* lib) {
+static bool boot(struct JVSIO_Lib* lib, bool block) {
   struct JVSIO_Work* work = lib->work;
 
   work->address[0] = kHostAddress;
@@ -411,8 +411,13 @@ static void boot(struct JVSIO_Lib* lib) {
   // Spec requires to wait for 2 seconds before starting any host operation.
   work->data->delay(work->data, 2000);
 
+  bool stop = false;
   for (;;) {
-    while (!work->sense->is_connected(work->sense));
+    stop = !block;
+    while (!work->sense->is_connected(work->sense)) {
+      if (stop)
+        return false;
+    }
 
     // Reset x2
     work->tx_data[0] = kBroadcastAddress;
@@ -444,6 +449,7 @@ static void boot(struct JVSIO_Lib* lib) {
       continue;
     break;
   }
+  return true;
 }
 
 struct JVSIO_Lib* JVSIO_open(
@@ -465,7 +471,7 @@ struct JVSIO_Lib* JVSIO_open(
   work->data = data;
   work->sense = sense;
   work->led = led;
-  work->nodes = nodes;
+  work->nodes = nodes ? nodes : 1;
   work->rx_size = 0;
   work->rx_read_ptr = 0;
   work->rx_receiving = false;
