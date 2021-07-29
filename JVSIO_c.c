@@ -25,8 +25,8 @@ struct JVSIO_Work {
   bool downstream_ready;
 };
 
-struct JVSIO_Lib lib;
-struct JVSIO_Work work;
+static struct JVSIO_Lib lib;
+static struct JVSIO_Work work;
 
 enum {
   kHostAddress = 0x00,
