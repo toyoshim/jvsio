@@ -22,9 +22,9 @@
 //  Sense: See SenseClient implementation
 //  LED Ready: See LedClient implementation
 class JVSIO {
-public:
+ public:
   class DataClient {
-  public:
+   public:
     virtual int available() { return 0; }
     virtual void setMode(int mode) {}
     virtual void startTransaction() {}
@@ -33,33 +33,33 @@ public:
     virtual void write(uint8_t data) {}
   };
   class SenseClient {
-  public:
+   public:
     virtual void begin() {}
     virtual void set(bool ready) {}
     virtual bool is_ready() { return true; }
     virtual bool is_connected() { return true; }
   };
   class LedClient {
-  public:
+   public:
     virtual void begin() {}
     virtual void set(bool ready) {}
   };
   enum {
-    kCmdReset = 0xF0,           // mandatory
-    kCmdAddressSet = 0xF1,      // mandatory
+    kCmdReset = 0xF0,       // mandatory
+    kCmdAddressSet = 0xF1,  // mandatory
 
-    kCmdIoId = 0x10,            // mandatory
-    kCmdCommandRev = 0x11,      // mandatory
-    kCmdJvRev = 0x12,           // mandatory
-    kCmdProtocolVer = 0x13,     // mandatory
-    kCmdFunctionCheck = 0x14,   // mandatory
+    kCmdIoId = 0x10,           // mandatory
+    kCmdCommandRev = 0x11,     // mandatory
+    kCmdJvRev = 0x12,          // mandatory
+    kCmdProtocolVer = 0x13,    // mandatory
+    kCmdFunctionCheck = 0x14,  // mandatory
     kCmdMainId = 0x15,
 
     kCmdSwInput = 0x20,
     kCmdCoinInput = 0x21,
     kCmdAnalogInput = 0x22,
 
-    kCmdRetry = 0x2F,           // mandatory
+    kCmdRetry = 0x2F,  // mandatory
 
     kCmdCoinSub = 0x30,
     kCmdDriverOutput = 0x32,
@@ -70,7 +70,9 @@ public:
     kReportParamErrorIgnored = 0x03,
     kReportBusy = 0x04,
   };
-  JVSIO(DataClient *data, SenseClient *sense, LedClient *led,
+  JVSIO(DataClient* data,
+        SenseClient* sense,
+        LedClient* led,
         uint8_t nodes = 1);
   ~JVSIO();
 
@@ -85,7 +87,7 @@ public:
   void boot();
   bool sendAndReceive(const uint8_t* packet, uint8_t** ack, uint8_t* ack_len);
 
-private:
+ private:
   void receive();
   uint8_t* receiveStatus(uint8_t* len);
 

@@ -16,7 +16,7 @@ constexpr uint8_t kSync = 0xE0;
 void dump(const char* str, uint8_t* data, size_t len) {
   // TODO : do Serial.begin();
   // for Arduino series which have native USB CDC (=Serial),
-  //   such as Leonardo, ProMicro, etc. 
+  //   such as Leonardo, ProMicro, etc.
   Serial.print(str);
   Serial.print(": ");
   for (size_t i = 0; i < len; ++i) {
@@ -38,33 +38,33 @@ void writeEscapedByte(JVSIO::DataClient* client, uint8_t data) {
 }
 
 uint8_t getCommandSize(uint8_t* command, uint8_t len) {
-  switch(*command) {
-   case JVSIO::kCmdReset:
-   case JVSIO::kCmdAddressSet:
-    return 2;
-   case JVSIO::kCmdIoId:
-   case JVSIO::kCmdCommandRev:
-   case JVSIO::kCmdJvRev:
-   case JVSIO::kCmdProtocolVer:
-   case JVSIO::kCmdFunctionCheck:
-    return 1;
-   case JVSIO::kCmdMainId:
-    break;  // handled later
-   case JVSIO::kCmdSwInput:
-    return 3;
-   case JVSIO::kCmdCoinInput:
-   case JVSIO::kCmdAnalogInput:
-    return 2;
-   case JVSIO::kCmdRetry:
-    return 1;
-   case JVSIO::kCmdCoinSub:
-   case JVSIO::kCmdCoinAdd:
-    return 4;
-   case JVSIO::kCmdDriverOutput:
-    return command[1] + 2;
-   default:
-    dump("unknown command", command, 1);
-    return 0;  // not supported
+  switch (*command) {
+    case JVSIO::kCmdReset:
+    case JVSIO::kCmdAddressSet:
+      return 2;
+    case JVSIO::kCmdIoId:
+    case JVSIO::kCmdCommandRev:
+    case JVSIO::kCmdJvRev:
+    case JVSIO::kCmdProtocolVer:
+    case JVSIO::kCmdFunctionCheck:
+      return 1;
+    case JVSIO::kCmdMainId:
+      break;  // handled later
+    case JVSIO::kCmdSwInput:
+      return 3;
+    case JVSIO::kCmdCoinInput:
+    case JVSIO::kCmdAnalogInput:
+      return 2;
+    case JVSIO::kCmdRetry:
+      return 1;
+    case JVSIO::kCmdCoinSub:
+    case JVSIO::kCmdCoinAdd:
+      return 4;
+    case JVSIO::kCmdDriverOutput:
+      return command[1] + 2;
+    default:
+      dump("unknown command", command, 1);
+      return 0;  // not supported
   }
   uint8_t size = 2;
   for (uint8_t i = 1; i < len && command[i]; ++i)
@@ -82,12 +82,23 @@ bool matchAddress(uint8_t target, uint8_t* address, uint8_t nodes) {
 
 }  // namespace
 
-JVSIO::JVSIO(DataClient *data, SenseClient *sense, LedClient *led,
+JVSIO::JVSIO(DataClient* data,
+             SenseClient* sense,
+             LedClient* led,
              uint8_t nodes)
-    : data_(data), sense_(sense), led_(led), nodes_(nodes), rx_size_(0),
-      rx_read_ptr_(0), rx_receiving_(false), rx_escaping_(false),
-      rx_available_(false), rx_error_(false), new_address_(kBroadcastAddress),
-      tx_report_size_(0), downstream_ready_(false) {
+    : data_(data),
+      sense_(sense),
+      led_(led),
+      nodes_(nodes),
+      rx_size_(0),
+      rx_read_ptr_(0),
+      rx_receiving_(false),
+      rx_escaping_(false),
+      rx_available_(false),
+      rx_error_(false),
+      new_address_(kBroadcastAddress),
+      tx_report_size_(0),
+      downstream_ready_(false) {
   for (uint8_t i = 0; i < nodes_; ++i)
     address_[i] = kBroadcastAddress;
 }
@@ -99,8 +110,7 @@ void JVSIO::begin() {
   sense_->begin();
 }
 
-void JVSIO::end() {
-}
+void JVSIO::end() {}
 
 uint8_t* JVSIO::getNextCommand(uint8_t* len, uint8_t* node) {
   for (;;) {
@@ -132,56 +142,56 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len, uint8_t* node) {
       continue;
     }
     switch (rx_data_[rx_read_ptr_]) {
-     case JVSIO::kCmdReset:
-      senseNotReady();
-      for (uint8_t i = 0; i < nodes_; ++i)
-        address_[i] = kBroadcastAddress;
-      rx_available_ = false;
-      rx_receiving_ = false;
-      dump("reset", nullptr, 0);
-      rx_read_ptr_ += command_size;
-      return &rx_data_[rx_read_ptr_ - command_size];
-     case JVSIO::kCmdAddressSet:
-      if (downstream_ready_) {
-        new_address_ = rx_data_[rx_read_ptr_ + 1];
-        dump("address", &rx_data_[rx_read_ptr_ + 1], 1);
-      }
-      pushReport(JVSIO::kReportOk);
-      break;
-     case JVSIO::kCmdCommandRev:
-      pushReport(JVSIO::kReportOk);
-      pushReport(0x13);
-      break;
-     case JVSIO::kCmdJvRev:
-      pushReport(JVSIO::kReportOk);
-      pushReport(0x30);
-      break;
-     case JVSIO::kCmdProtocolVer:
-      pushReport(JVSIO::kReportOk);
-      pushReport(0x10);
-      break;
-     case JVSIO::kCmdMainId:
-      // TODO
-      dump("ignore kCmdMainId", nullptr, 0);
-      sendUnknownCommandStatus();
-      break;
-     case JVSIO::kCmdRetry:
-      sendStatus();
-      break;
-     case JVSIO::kCmdIoId:
-     case JVSIO::kCmdFunctionCheck:
-     case JVSIO::kCmdSwInput:
-     case JVSIO::kCmdCoinInput:
-     case JVSIO::kCmdAnalogInput:
-     case JVSIO::kCmdCoinSub:
-     case JVSIO::kCmdDriverOutput:
-     case JVSIO::kCmdCoinAdd:
-      *len = command_size;
-      rx_read_ptr_ += command_size;
-      return &rx_data_[rx_read_ptr_ - command_size];
-     default:
-      sendUnknownCommandStatus();
-      break;
+      case JVSIO::kCmdReset:
+        senseNotReady();
+        for (uint8_t i = 0; i < nodes_; ++i)
+          address_[i] = kBroadcastAddress;
+        rx_available_ = false;
+        rx_receiving_ = false;
+        dump("reset", nullptr, 0);
+        rx_read_ptr_ += command_size;
+        return &rx_data_[rx_read_ptr_ - command_size];
+      case JVSIO::kCmdAddressSet:
+        if (downstream_ready_) {
+          new_address_ = rx_data_[rx_read_ptr_ + 1];
+          dump("address", &rx_data_[rx_read_ptr_ + 1], 1);
+        }
+        pushReport(JVSIO::kReportOk);
+        break;
+      case JVSIO::kCmdCommandRev:
+        pushReport(JVSIO::kReportOk);
+        pushReport(0x13);
+        break;
+      case JVSIO::kCmdJvRev:
+        pushReport(JVSIO::kReportOk);
+        pushReport(0x30);
+        break;
+      case JVSIO::kCmdProtocolVer:
+        pushReport(JVSIO::kReportOk);
+        pushReport(0x10);
+        break;
+      case JVSIO::kCmdMainId:
+        // TODO
+        dump("ignore kCmdMainId", nullptr, 0);
+        sendUnknownCommandStatus();
+        break;
+      case JVSIO::kCmdRetry:
+        sendStatus();
+        break;
+      case JVSIO::kCmdIoId:
+      case JVSIO::kCmdFunctionCheck:
+      case JVSIO::kCmdSwInput:
+      case JVSIO::kCmdCoinInput:
+      case JVSIO::kCmdAnalogInput:
+      case JVSIO::kCmdCoinSub:
+      case JVSIO::kCmdDriverOutput:
+      case JVSIO::kCmdCoinAdd:
+        *len = command_size;
+        rx_read_ptr_ += command_size;
+        return &rx_data_[rx_read_ptr_ - command_size];
+      default:
+        sendUnknownCommandStatus();
+        break;
     }
     rx_read_ptr_ += command_size;
   }
@@ -204,7 +214,8 @@ void JVSIO::boot() {
   delay(2000);
 
   for (;;) {
-    while (!sense_->is_connected());
+    while (!sense_->is_connected())
+      ;
 
     // Reset x2
     tx_data_[0] = kBroadcastAddress;
@@ -238,13 +249,14 @@ void JVSIO::boot() {
   }
 }
 
-bool JVSIO::sendAndReceive(const uint8_t* packet, uint8_t** ack, uint8_t* ack_len) {
+bool JVSIO::sendAndReceive(const uint8_t* packet,
+                           uint8_t** ack,
+                           uint8_t* ack_len) {
   data_->setMode(OUTPUT);
   sendPacket(packet);
   *ack = receiveStatus(ack_len);
   return *ack != nullptr;
 }
-
 
 void JVSIO::senseNotReady() {
   sense_->set(false);
@@ -314,7 +326,7 @@ uint8_t* JVSIO::receiveStatus(uint8_t* len) {
     receive();  // TODO: timeout.
     if (!sense_->is_connected())
       return nullptr;
-  } while(!rx_available_);
+  } while (!rx_available_);
   if (rx_error_)
     return nullptr;
   *len = rx_data_[1] - 1;

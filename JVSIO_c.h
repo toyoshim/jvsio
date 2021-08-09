@@ -44,21 +44,21 @@ struct JVSIO_LedClient {
 };
 
 enum JVSIO_Cmd {
-  kCmdReset = 0xF0,           // mandatory
-  kCmdAddressSet = 0xF1,      // mandatory
+  kCmdReset = 0xF0,       // mandatory
+  kCmdAddressSet = 0xF1,  // mandatory
 
-  kCmdIoId = 0x10,            // mandatory
-  kCmdCommandRev = 0x11,      // mandatory
-  kCmdJvRev = 0x12,           // mandatory
-  kCmdProtocolVer = 0x13,     // mandatory
-  kCmdFunctionCheck = 0x14,   // mandatory
+  kCmdIoId = 0x10,           // mandatory
+  kCmdCommandRev = 0x11,     // mandatory
+  kCmdJvRev = 0x12,          // mandatory
+  kCmdProtocolVer = 0x13,    // mandatory
+  kCmdFunctionCheck = 0x14,  // mandatory
   kCmdMainId = 0x15,
 
   kCmdSwInput = 0x20,
   kCmdCoinInput = 0x21,
   kCmdAnalogInput = 0x22,
 
-  kCmdRetry = 0x2F,           // mandatory
+  kCmdRetry = 0x2F,  // mandatory
 
   kCmdCoinSub = 0x30,
   kCmdDriverOutput = 0x32,
@@ -77,26 +77,25 @@ struct JVSIO_Lib {
   void (*end)(struct JVSIO_Lib* lib);
 
   // For client nodes.
-  uint8_t* (*getNextCommand)(
-      struct JVSIO_Lib* lib, uint8_t* len, uint8_t* node);
+  uint8_t* (*getNextCommand)(struct JVSIO_Lib* lib,
+                             uint8_t* len,
+                             uint8_t* node);
   void (*pushReport)(struct JVSIO_Lib* lib, uint8_t report);
 
   // For hosts.
   bool (*boot)(struct JVSIO_Lib* lib, bool block);
-  bool (*sendAndReceive)(
-      struct JVSIO_Lib* lib,
-      const uint8_t* packet,
-      uint8_t** ack,
-      uint8_t* ack_len);
+  bool (*sendAndReceive)(struct JVSIO_Lib* lib,
+                         const uint8_t* packet,
+                         uint8_t** ack,
+                         uint8_t* ack_len);
 
   struct JVSIO_Work* work;
 };
 
-struct JVSIO_Lib* JVSIO_open(
-    struct JVSIO_DataClient *data,
-    struct JVSIO_SenseClient *sense,
-    struct JVSIO_LedClient *led,
-    uint8_t nodes);
+struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
+                             struct JVSIO_SenseClient* sense,
+                             struct JVSIO_LedClient* led,
+                             uint8_t nodes);
 
 void JVSIO_close(struct JVSIO_Lib* lib);
 
