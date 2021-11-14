@@ -11,8 +11,8 @@
 
 #include "BaseClient.h"
 
-// Data+: 2 PD2 ( RXDI/INT2 )
-// Data-: 3 PD3 ( TXD1/INT3 )
+// Data+: 0 PE0 ( D0/RX0 )
+// Data-: 1 PE1 ( D1/TX0 )
 using MegaDataClient = BaseDataClient<0, 1, 0, 1, 0x0e, 0x0e>;
 
 // Sense: 9 PH6 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
