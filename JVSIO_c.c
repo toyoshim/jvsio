@@ -72,33 +72,33 @@ static void writeEscapedByte(struct JVSIO_DataClient* client, uint8_t data) {
 }
 
 static uint8_t getCommandSize(uint8_t* command, uint8_t len) {
-  switch(*command) {
-   case kCmdReset:
-   case kCmdAddressSet:
-    return 2;
-   case kCmdIoId:
-   case kCmdCommandRev:
-   case kCmdJvRev:
-   case kCmdProtocolVer:
-   case kCmdFunctionCheck:
-    return 1;
-   case kCmdMainId:
-    break;  // handled later
-   case kCmdSwInput:
-    return 3;
-   case kCmdCoinInput:
-   case kCmdAnalogInput:
-    return 2;
-   case kCmdRetry:
-    return 1;
-   case kCmdCoinSub:
-   case kCmdCoinAdd:
-    return 4;
-   case kCmdDriverOutput:
-    return command[1] + 2;
-   default:
-    dump("unknown command", command, 1);
-    return 0;  // not supported
+  switch (*command) {
+    case kCmdReset:
+    case kCmdAddressSet:
+      return 2;
+    case kCmdIoId:
+    case kCmdCommandRev:
+    case kCmdJvRev:
+    case kCmdProtocolVer:
+    case kCmdFunctionCheck:
+      return 1;
+    case kCmdMainId:
+      break;  // handled later
+    case kCmdSwInput:
+      return 3;
+    case kCmdCoinInput:
+    case kCmdAnalogInput:
+      return 2;
+    case kCmdRetry:
+      return 1;
+    case kCmdCoinSub:
+    case kCmdCoinAdd:
+      return 4;
+    case kCmdDriverOutput:
+      return command[1] + 2;
+    default:
+      dump("unknown command", command, 1);
+      return 0;  // not supported
   }
   uint8_t size = 2;
   for (uint8_t i = 1; i < len && command[i]; ++i)
@@ -291,7 +291,9 @@ static void end(struct JVSIO_Lib* lib) {
   lib->getNextCommand = NULL;
 }
 
-static uint8_t* getNextCommand(struct JVSIO_Lib* lib, uint8_t* len, uint8_t* node) {
+static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
+                               uint8_t* len,
+                               uint8_t* node) {
   struct JVSIO_Work* work = lib->work;
   uint8_t i;
 
@@ -324,56 +326,56 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib, uint8_t* len, uint8_t* nod
       continue;
     }
     switch (work->rx_data[work->rx_read_ptr]) {
-     case kCmdReset:
-      senseNotReady(work);
-      for (i = 0; i < work->nodes; ++i)
-        work->address[i] = kBroadcastAddress;
-      work->rx_available = false;
-      work->rx_receiving = false;
-      dump("reset", NULL, 0);
-      work->rx_read_ptr += command_size;
-      return &work->rx_data[work->rx_read_ptr - command_size];
-     case kCmdAddressSet:
-      if (work->downstream_ready) {
-        work->new_address = work->rx_data[work->rx_read_ptr + 1];
-        dump("address", &work->rx_data[work->rx_read_ptr + 1], 1);
-      }
-      pushReport(lib, kReportOk);
-      break;
-     case kCmdCommandRev:
-      pushReport(lib, kReportOk);
-      pushReport(lib, 0x13);
-      break;
-     case kCmdJvRev:
-      pushReport(lib, kReportOk);
-      pushReport(lib, 0x30);
-      break;
-     case kCmdProtocolVer:
-      pushReport(lib, kReportOk);
-      pushReport(lib, 0x10);
-      break;
-     case kCmdMainId:
-      // TODO
-      dump("ignore kCmdMainId", NULL, 0);
-      sendUnknownCommandStatus(work);
-      break;
-     case kCmdRetry:
-      sendStatus(work);
-      break;
-     case kCmdIoId:
-     case kCmdFunctionCheck:
-     case kCmdSwInput:
-     case kCmdCoinInput:
-     case kCmdAnalogInput:
-     case kCmdCoinSub:
-     case kCmdDriverOutput:
-     case kCmdCoinAdd:
-      *len = command_size;
-      work->rx_read_ptr += command_size;
-      return &work->rx_data[work->rx_read_ptr - command_size];
-     default:
-      sendUnknownCommandStatus(work);
-      break;
+      case kCmdReset:
+        senseNotReady(work);
+        for (i = 0; i < work->nodes; ++i)
+          work->address[i] = kBroadcastAddress;
+        work->rx_available = false;
+        work->rx_receiving = false;
+        dump("reset", NULL, 0);
+        work->rx_read_ptr += command_size;
+        return &work->rx_data[work->rx_read_ptr - command_size];
+      case kCmdAddressSet:
+        if (work->downstream_ready) {
+          work->new_address = work->rx_data[work->rx_read_ptr + 1];
+          dump("address", &work->rx_data[work->rx_read_ptr + 1], 1);
+        }
+        pushReport(lib, kReportOk);
+        break;
+      case kCmdCommandRev:
+        pushReport(lib, kReportOk);
+        pushReport(lib, 0x13);
+        break;
+      case kCmdJvRev:
+        pushReport(lib, kReportOk);
+        pushReport(lib, 0x30);
+        break;
+      case kCmdProtocolVer:
+        pushReport(lib, kReportOk);
+        pushReport(lib, 0x10);
+        break;
+      case kCmdMainId:
+        // TODO
+        dump("ignore kCmdMainId", NULL, 0);
+        sendUnknownCommandStatus(work);
+        break;
+      case kCmdRetry:
+        sendStatus(work);
+        break;
+      case kCmdIoId:
+      case kCmdFunctionCheck:
+      case kCmdSwInput:
+      case kCmdCoinInput:
+      case kCmdAnalogInput:
+      case kCmdCoinSub:
+      case kCmdDriverOutput:
+      case kCmdCoinAdd:
+        *len = command_size;
+        work->rx_read_ptr += command_size;
+        return &work->rx_data[work->rx_read_ptr - command_size];
+      default:
+        sendUnknownCommandStatus(work);
+        break;
     }
     work->rx_read_ptr += command_size;
   }
@@ -384,7 +386,7 @@ static uint8_t* receiveStatus(struct JVSIO_Work* work, uint8_t* len) {
     receive(work);  // TODO: timeout.
     if (!work->sense->is_connected(work->sense))
       return NULL;
-  } while(!work->rx_available);
+  } while (!work->rx_available);
   if (work->rx_error)
     return NULL;
   *len = work->rx_data[1] - 1;
@@ -394,7 +396,10 @@ static uint8_t* receiveStatus(struct JVSIO_Work* work, uint8_t* len) {
   return &work->rx_data[2];
 }
 
-static bool sendAndReceive(struct JVSIO_Lib* lib, const uint8_t* packet, uint8_t** ack, uint8_t* ack_len) {
+static bool sendAndReceive(struct JVSIO_Lib* lib,
+                           const uint8_t* packet,
+                           uint8_t** ack,
+                           uint8_t* ack_len) {
   struct JVSIO_Work* work = lib->work;
 
   work->data->setOutput(work->data);
@@ -452,11 +457,10 @@ static bool boot(struct JVSIO_Lib* lib, bool block) {
   return true;
 }
 
-struct JVSIO_Lib* JVSIO_open(
-    struct JVSIO_DataClient* data,
-    struct JVSIO_SenseClient *sense,
-    struct JVSIO_LedClient *led,
-    uint8_t nodes) {
+struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
+                             struct JVSIO_SenseClient* sense,
+                             struct JVSIO_LedClient* led,
+                             uint8_t nodes) {
   lib.work = &work;
   struct JVSIO_Lib* jvsio = &lib;
   struct JVSIO_Work* work = jvsio->work;
@@ -486,5 +490,4 @@ struct JVSIO_Lib* JVSIO_open(
   return jvsio;
 }
 
-void JVSIO_close(struct JVSIO_Lib* lib) {
-}
+void JVSIO_close(struct JVSIO_Lib* lib) {}
