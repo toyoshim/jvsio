@@ -57,6 +57,7 @@ enum JVSIO_Cmd {
   kCmdSwInput = 0x20,
   kCmdCoinInput = 0x21,
   kCmdAnalogInput = 0x22,
+  kCmdRotaryInput = 0x23,
 
   kCmdRetry = 0x2F,  // mandatory
 
