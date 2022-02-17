@@ -90,6 +90,10 @@ static uint8_t getCommandSize(uint8_t* command, uint8_t len) {
     case kCmdAnalogInput:
     case kCmdRotaryInput:
       return 2;
+    case kCmdKeyCodeInput:
+      return 1;
+    case kCmdScreenPositionInput:
+      return 2;
     case kCmdRetry:
       return 1;
     case kCmdCoinSub:
@@ -369,6 +373,8 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
       case kCmdCoinInput:
       case kCmdAnalogInput:
       case kCmdRotaryInput:
+      case kCmdKeyCodeInput:
+      case kCmdScreenPositionInput:
       case kCmdCoinSub:
       case kCmdDriverOutput:
       case kCmdCoinAdd:
