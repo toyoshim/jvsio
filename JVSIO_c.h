@@ -65,6 +65,8 @@ enum JVSIO_Cmd {
 
   kCmdCoinSub = 0x30,
   kCmdDriverOutput = 0x32,
+  kCmdAnalogOutput = 0x33,
+  kCmdCharacterOutput = 0x34,
   kCmdCoinAdd = 0x35,
 
   kReportOk = 0x01,

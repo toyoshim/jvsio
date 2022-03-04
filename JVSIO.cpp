@@ -62,6 +62,10 @@ uint8_t getCommandSize(uint8_t* command, uint8_t len) {
       return 4;
     case JVSIO::kCmdDriverOutput:
       return command[1] + 2;
+    case JVSIO::kCmdAnalogOutput:
+      return command[1] * 2 + 2;
+    case JVSIO::kCmdCharacterOutput:
+      return command[1] + 2;
     default:
       dump("unknown command", command, 1);
       return 0;  // not supported
@@ -185,6 +189,8 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len, uint8_t* node) {
       case JVSIO::kCmdAnalogInput:
       case JVSIO::kCmdCoinSub:
       case JVSIO::kCmdDriverOutput:
+      case JVSIO::kCmdAnalogOutput:
+      case JVSIO::kCmdCharacterOutput:
       case JVSIO::kCmdCoinAdd:
         *len = command_size;
         rx_read_ptr_ += command_size;
