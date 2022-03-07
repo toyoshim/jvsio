@@ -360,9 +360,10 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
         pushReport(lib, 0x10);
         break;
       case kCmdMainId:
-        // TODO
-        dump("ignore kCmdMainId", NULL, 0);
-        sendUnknownCommandStatus(work);
+        // We may hold the Id to provide it for the client code, but let's just
+        // ignore it for now. It seems newer namco boards send this command,
+        // e.g. BNGI.;WinArc;Ver"2.2.4";JPN, and expects OK status to proceed.
+        pushReport(lib, kReportOk);
         break;
       case kCmdRetry:
         sendStatus(work);
