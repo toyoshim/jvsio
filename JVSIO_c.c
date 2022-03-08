@@ -375,6 +375,7 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
         work->rx_receiving = false;
         dump("reset", NULL, 0);
         work->rx_read_ptr += command_size;
+        *len = command_size;
         return &work->rx_data[work->rx_read_ptr - command_size];
       case kCmdAddressSet:
         if (work->downstream_ready) {
