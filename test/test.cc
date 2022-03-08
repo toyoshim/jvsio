@@ -52,6 +52,26 @@ class ClientTest : public ::testing::Test {
     }
   }
 
+  uint8_t GetStatus(std::vector<uint8_t>& report) {
+    EXPECT_GE(outgoing_data_.size(), 5u);
+    EXPECT_EQ(kSync, outgoing_data_[0]);
+    EXPECT_EQ(kHostAddress, outgoing_data_[1]);
+    uint8_t size = outgoing_data_[2];
+    uint8_t status = outgoing_data_[3];
+    uint8_t sum = kHostAddress + size + status;
+    report.clear();
+    for (uint8_t i = 4; i < outgoing_data_.size() - 1; ++i) {
+      report.push_back(outgoing_data_[i]);
+      sum += outgoing_data_[i];
+    }
+    EXPECT_EQ(sum, outgoing_data_[outgoing_data_.size() - 1]);
+    outgoing_data_.clear();
+    return status;
+  }
+
+  void SendUnknownStatus() { io_->sendUnknownStatus(io_); }
+  void PushReport(uint8_t report) { io_->pushReport(io_, report); }
+
  private:
   void SetUp() override {
     data_.available = IsDataAvailable;
@@ -99,15 +119,24 @@ class ClientTest : public ::testing::Test {
     self->incoming_data_.pop();
     return c;
   }
-  static void WriteData(JVSIO_DataClient* client, uint8_t data) {}
+  static void WriteData(JVSIO_DataClient* client, uint8_t data) {
+    auto* self = ClientTest::From(client);
+    if (self->outgoing_marked_) {
+      self->outgoing_data_.push_back(data + 1);
+      self->outgoing_marked_ = false;
+    } else {
+      if (data == kMarker)
+        self->outgoing_marked_ = true;
+      else
+        self->outgoing_data_.push_back(data);
+    }
+  }
   static void Delay(JVSIO_DataClient* client, unsigned int time) {}
   static void DoNothingForSense(JVSIO_SenseClient* client) {}
   static void SetSense(JVSIO_SenseClient* client, bool ready) {
     ClientTest::From(client)->SetReady(ready);
   }
-  static bool IsSenseReady(JVSIO_SenseClient* client) {
-    return ClientTest::From(client)->IsReady();
-  }
+  static bool IsSenseReady(JVSIO_SenseClient* client) { return true; }
   static bool IsSenseConnected(JVSIO_SenseClient* client) { return false; }
 
   static void DoNothingForLed(JVSIO_LedClient* client) {}
@@ -120,6 +149,8 @@ class ClientTest : public ::testing::Test {
 
   bool ready_ = false;
   std::queue<uint8_t> incoming_data_;
+  std::vector<uint8_t> outgoing_data_;
+  bool outgoing_marked_ = false;
 };
 
 TEST_F(ClientTest, DoNothing) {
@@ -132,7 +163,7 @@ TEST_F(ClientTest, Reset) {
   SetReady(true);
   ASSERT_TRUE(IsReady());
 
-  const uint8_t kResetCommand[] = {0xf0, 0xd9};
+  const uint8_t kResetCommand[] = {kCmdReset, 0xd9};
   SetCommand(kBroadcastAddress, kResetCommand, sizeof(kResetCommand));
 
   uint8_t len;
@@ -143,4 +174,139 @@ TEST_F(ClientTest, Reset) {
   EXPECT_FALSE(IsReady());
 }
 
+TEST_F(ClientTest, AddressSet) {
+  ASSERT_FALSE(IsReady());
+
+  const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
+  SetCommand(kBroadcastAddress, kAddressSetCommand, sizeof(kAddressSetCommand));
+
+  uint8_t len;
+  uint8_t* data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  EXPECT_TRUE(IsReady());
+
+  std::vector<uint8_t> reports;
+  uint8_t status = GetStatus(reports);
+  EXPECT_EQ(0x01, status);
+  ASSERT_EQ(1u, reports.size());
+  EXPECT_EQ(0x01, reports[0]);
+
+  const uint8_t kResetCommand[] = {kCmdReset, 0xd9};
+  SetCommand(0x02, kResetCommand, sizeof(kResetCommand));
+  GetNextCommand(&len);
+  EXPECT_TRUE(IsReady());
+
+  SetCommand(kClientAddress, kResetCommand, sizeof(kResetCommand));
+  GetNextCommand(&len);
+  EXPECT_FALSE(IsReady());
+}
+
+TEST_F(ClientTest, Namco_70_18_50_4c_14) {
+  const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
+  SetCommand(kBroadcastAddress, kAddressSetCommand, sizeof(kAddressSetCommand));
+
+  uint8_t len;
+  uint8_t* data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  EXPECT_TRUE(IsReady());
+
+  std::vector<uint8_t> reports;
+  uint8_t status = GetStatus(reports);
+  EXPECT_EQ(0x01, status);
+  ASSERT_EQ(1u, reports.size());
+  EXPECT_EQ(0x01, reports[0]);
+
+  const uint8_t kCommand[] = {kCmdNamco, 0x18, 0x50, 0x4c, 0x14, 0xd0,
+                              0x3b,      0x57, 0x69, 0x6e, 0x41, 0x72};
+  SetCommand(kClientAddress, kCommand, sizeof(kCommand));
+  data = GetNextCommand(&len);
+  EXPECT_EQ(kCmdNamco, data[0]);
+  EXPECT_EQ(0x18, data[1]);
+  EXPECT_EQ(0x50, data[2]);
+  EXPECT_EQ(0x4c, data[3]);
+  EXPECT_EQ(0x14, data[4]);
+  SendUnknownStatus();
+
+  status = GetStatus(reports);
+  EXPECT_EQ(0x02, status);
+  ASSERT_EQ(0u, reports.size());
+}
+
+TEST_F(ClientTest, Namco_70_18_50_4c_02) {
+  const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
+  SetCommand(kBroadcastAddress, kAddressSetCommand, sizeof(kAddressSetCommand));
+
+  uint8_t len;
+  uint8_t* data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  EXPECT_TRUE(IsReady());
+
+  std::vector<uint8_t> reports;
+  uint8_t status = GetStatus(reports);
+  EXPECT_EQ(0x01, status);
+  ASSERT_EQ(1u, reports.size());
+  EXPECT_EQ(0x01, reports[0]);
+
+  const uint8_t kCommand[] = {kCmdNamco, 0x18, 0x50, 0x4c, 0x02, 0x0e, 0x10};
+
+  SetCommand(kClientAddress, kCommand, sizeof(kCommand));
+  data = GetNextCommand(&len);
+  EXPECT_EQ(kCmdNamco, data[0]);
+  EXPECT_EQ(0x18, data[1]);
+  EXPECT_EQ(0x50, data[2]);
+  EXPECT_EQ(0x4c, data[3]);
+  EXPECT_EQ(0x02, data[4]);
+  PushReport(kReportOk);
+  PushReport(0x01);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  status = GetStatus(reports);
+  EXPECT_EQ(0x01, status);
+  ASSERT_EQ(2u, reports.size());
+  EXPECT_EQ(0x01, reports[0]);
+  EXPECT_EQ(0x01, reports[1]);
+}
+
+TEST_F(ClientTest, Namco_70_18_50_4c_80) {
+  const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
+  SetCommand(kBroadcastAddress, kAddressSetCommand, sizeof(kAddressSetCommand));
+
+  uint8_t len;
+  uint8_t* data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  EXPECT_TRUE(IsReady());
+
+  std::vector<uint8_t> reports;
+  uint8_t status = GetStatus(reports);
+  EXPECT_EQ(0x01, status);
+  ASSERT_EQ(1u, reports.size());
+  EXPECT_EQ(0x01, reports[0]);
+
+  const uint8_t kCommand[] = {kCmdNamco, 0x18, 0x50, 0x4c, 0x80, 0x08};
+
+  SetCommand(kClientAddress, kCommand, sizeof(kCommand));
+  data = GetNextCommand(&len);
+  EXPECT_EQ(kCmdNamco, data[0]);
+  EXPECT_EQ(0x18, data[1]);
+  EXPECT_EQ(0x50, data[2]);
+  EXPECT_EQ(0x4c, data[3]);
+  EXPECT_EQ(0x80, data[4]);
+  PushReport(kReportOk);
+  PushReport(0x01);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  status = GetStatus(reports);
+  EXPECT_EQ(0x01, status);
+  ASSERT_EQ(2u, reports.size());
+  EXPECT_EQ(0x01, reports[0]);
+  EXPECT_EQ(0x01, reports[1]);
+}
 }  // namespace

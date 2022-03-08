@@ -60,7 +60,7 @@ static void dump(const char* str, uint8_t* data, size_t len) {
       Serial.print("0");
 #endif
 #if defined(__TEST__)
-    fprintf(stderr, "%0x02 ", data[i]);
+    fprintf(stderr, "%02x ", data[i]);
 #elif defined(__SDCC)
     Serial.printc(data[i], HEX);
 #else
