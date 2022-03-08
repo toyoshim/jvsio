@@ -6,6 +6,10 @@
 
 #include <stdlib.h>
 
+#if defined(__TEST__)
+#include <stdio.h>
+#endif
+
 struct JVSIO_Work {
   struct JVSIO_DataClient* data;
   struct JVSIO_SenseClient* sense;
@@ -44,19 +48,33 @@ static void dump(const char* str, uint8_t* data, size_t len) {
   // TODO: Define DebugClient.
   // do Serial.begin(); for Arduino series which have native USB CDC (=Serial),
   // such as Leonardo, ProMicro, etc.
+#if defined(__TEST__)
+  fprintf(stderr, "%s: ", str);
+#else
   Serial.print(str);
   Serial.print(": ");
+#endif
   for (size_t i = 0; i < len; ++i) {
+#if !defined(__TEST__)
     if (data[i] < 16)
       Serial.print("0");
-#ifdef __SDCC
+#endif
+#if defined(__TEST__)
+    fprintf(stderr, "%0x02 ", data[i]);
+#elif defined(__SDCC)
     Serial.printc(data[i], HEX);
 #else
     Serial.print(data[i], HEX);
 #endif
+#if !defined(__TEST__)
     Serial.print(" ");
+#endif
   }
+#if defined(__TEST__)
+  fprintf(stderr, "\n");
+#else
   Serial.println("");
+#endif
 }
 #ifdef __SDCC
 #pragma restore
