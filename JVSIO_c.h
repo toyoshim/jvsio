@@ -90,12 +90,14 @@ struct JVSIO_Lib {
   void (*pushReport)(struct JVSIO_Lib* lib, uint8_t report);
   void (*sendUnknownStatus)(struct JVSIO_Lib* lib);
 
+#if !defined(__NO_JVS_HOST__)
   // For hosts.
   bool (*boot)(struct JVSIO_Lib* lib, bool block);
   bool (*sendAndReceive)(struct JVSIO_Lib* lib,
                          const uint8_t* packet,
                          uint8_t** ack,
                          uint8_t* ack_len);
+#endif
 
   struct JVSIO_Work* work;
 };

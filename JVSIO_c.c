@@ -430,6 +430,7 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
   }
 }
 
+#if !defined(__NO_JVS_HOST__)
 static uint8_t* receiveStatus(struct JVSIO_Work* work, uint8_t* len) {
   do {
     receive(work);  // TODO: timeout.
@@ -505,6 +506,7 @@ static bool boot(struct JVSIO_Lib* lib, bool block) {
   }
   return true;
 }
+#endif
 
 struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
                              struct JVSIO_SenseClient* sense,
@@ -519,8 +521,10 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   jvsio->getNextCommand = getNextCommand;
   jvsio->pushReport = pushReport;
   jvsio->sendUnknownStatus = sendUnknownStatus;
+#if !defined(__NO_JVS_HOST__)
   jvsio->boot = boot;
   jvsio->sendAndReceive = sendAndReceive;
+#endif
 
   work->data = data;
   work->sense = sense;
