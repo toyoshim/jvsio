@@ -1,5 +1,7 @@
 # JVSIO
 
+![C/C++ CI](https://github.com/toyoshim/chlib/actions/workflows/c-cpp.yml/badge.svg)
+
 JVSIO is a library for Arduino to handle JVS - JAMMA Video Standard - Bus v3.
 
 ## Supported Boards / Devices
