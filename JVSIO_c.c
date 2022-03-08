@@ -101,6 +101,20 @@ static uint8_t getCommandSize(uint8_t* command, uint8_t len) {
       return 4;
     case kCmdDriverOutput:
       return command[1] + 2;
+    case kCmdAnalogOutput:
+      return command[1] * 2 + 2;
+    case kCmdCharacterOutput:
+      return command[1] + 2;
+    case kCmdNamco:
+      switch (command[4]) {
+        case 0x02:
+          return 7;
+        case 0x14:
+          return 12;
+        case 0x80:
+          return 6;
+      }
+      return 0;
     default:
       dump("unknown command", command, 1);
       return 0;  // not supported
@@ -229,6 +243,10 @@ static void pushReport(struct JVSIO_Lib* lib, uint8_t report) {
     work->tx_data[3 + work->tx_report_size] = report;
     work->tx_report_size++;
   }
+}
+
+static void sendUnknownStatus(struct JVSIO_Lib* lib) {
+  return sendUnknownCommandStatus(lib->work);
 }
 
 static void receive(struct JVSIO_Work* work) {
@@ -378,7 +396,10 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
       case kCmdScreenPositionInput:
       case kCmdCoinSub:
       case kCmdDriverOutput:
+      case kCmdAnalogOutput:
+      case kCmdCharacterOutput:
       case kCmdCoinAdd:
+      case kCmdNamco:
         *len = command_size;
         work->rx_read_ptr += command_size;
         return &work->rx_data[work->rx_read_ptr - command_size];
@@ -478,6 +499,7 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   jvsio->end = end;
   jvsio->getNextCommand = getNextCommand;
   jvsio->pushReport = pushReport;
+  jvsio->sendUnknownStatus = sendUnknownStatus;
   jvsio->boot = boot;
   jvsio->sendAndReceive = sendAndReceive;
 

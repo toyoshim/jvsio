@@ -58,11 +58,16 @@ class JVSIO {
     kCmdSwInput = 0x20,
     kCmdCoinInput = 0x21,
     kCmdAnalogInput = 0x22,
+    kCmdRotaryInput = 0x23,
+    kCmdKeyCodeInput = 0x24,
+    kCmdScreenPositionInput = 0x25,
 
     kCmdRetry = 0x2F,  // mandatory
 
     kCmdCoinSub = 0x30,
     kCmdDriverOutput = 0x32,
+    kCmdAnalogOutput = 0x33,
+    kCmdCharacterOutput = 0x34,
     kCmdCoinAdd = 0x35,
 
     kReportOk = 0x01,

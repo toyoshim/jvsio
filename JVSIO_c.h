@@ -69,6 +69,8 @@ enum JVSIO_Cmd {
   kCmdCharacterOutput = 0x34,
   kCmdCoinAdd = 0x35,
 
+  kCmdNamco = 0x70,  // vendor specific.
+
   kReportOk = 0x01,
   kReportParamErrorNoResponse = 0x02,
   kReportParamErrorIgnored = 0x03,
@@ -86,6 +88,7 @@ struct JVSIO_Lib {
                              uint8_t* len,
                              uint8_t* node);
   void (*pushReport)(struct JVSIO_Lib* lib, uint8_t report);
+  void (*sendUnknownStatus)(struct JVSIO_Lib* lib);
 
   // For hosts.
   bool (*boot)(struct JVSIO_Lib* lib, bool block);

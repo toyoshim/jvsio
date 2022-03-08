@@ -54,6 +54,11 @@ uint8_t getCommandSize(uint8_t* command, uint8_t len) {
       return 3;
     case JVSIO::kCmdCoinInput:
     case JVSIO::kCmdAnalogInput:
+    case JVSIO::kCmdRotaryInput:
+      return 2;
+    case JVSIO::kCmdKeyCodeInput:
+      return 1;
+    case JVSIO::kCmdScreenPositionInput:
       return 2;
     case JVSIO::kCmdRetry:
       return 1;
@@ -188,6 +193,9 @@ uint8_t* JVSIO::getNextCommand(uint8_t* len, uint8_t* node) {
       case JVSIO::kCmdSwInput:
       case JVSIO::kCmdCoinInput:
       case JVSIO::kCmdAnalogInput:
+      case JVSIO::kCmdRotaryInput:
+      case JVSIO::kCmdKeyCodeInput:
+      case JVSIO::kCmdScreenPositionInput:
       case JVSIO::kCmdCoinSub:
       case JVSIO::kCmdDriverOutput:
       case JVSIO::kCmdAnalogOutput:
