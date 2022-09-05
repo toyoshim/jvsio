@@ -27,6 +27,7 @@ struct JVSIO_Work {
   uint8_t tx_data[256];
   uint8_t tx_report_size;
   bool downstream_ready;
+  enum JVSIO_CommSupMode comm_mode;
 };
 
 static struct JVSIO_Lib lib;
@@ -132,7 +133,11 @@ static uint8_t getCommandSize(uint8_t* command, uint8_t len) {
         case 0x80:
           return 6;
       }
-      return 0;
+      return 0;  // not supported
+    case kCmdCommSup:
+      return 1;
+    case kCmdCommChg:
+      return 2;
     default:
       dump("unknown command", command, 1);
       return 0;  // not supported
@@ -178,21 +183,21 @@ static void sendPacket(struct JVSIO_Work* work, const uint8_t* data) {
 }
 
 static void sendStatus(struct JVSIO_Work* work) {
+  // Should not reply if the rx_receiving is reset, e.g. for broadcast commands.
+  if (!work->rx_receiving)
+    return;
+
   work->rx_available = false;
   work->rx_receiving = false;
-
-  // Should not reply for broadcast commands.
-  if (kBroadcastAddress == work->address[work->nodes - 1] &&
-      kBroadcastAddress == work->new_address) {
-    return;
-  }
 
   // Direction should be changed within 100usec from sending/receiving a packet.
   work->data->setOutput(work->data);
 
-  // Spec requires 100usec interval at minimum between each packet.
-  // But response should be sent within 1msec from the last byte received.
-  work->data->delayMicroseconds(work->data, 100);
+  if (work->comm_mode == k115200) {
+    // Spec requires 100usec interval at minimum between each packet.
+    // But response should be sent within 1msec from the last byte received.
+    work->data->delayMicroseconds(work->data, 100);
+  }
 
   // Address is just assigned.
   // This timing to negate the sense signal is subtle. The spec expects this
@@ -295,10 +300,12 @@ static void receive(struct JVSIO_Work* work) {
       for (size_t i = 0; i < (work->rx_size - 1u); ++i)
         sum += work->rx_data[i];
       if ((work->rx_data[0] == kBroadcastAddress &&
-           work->rx_data[2] == kCmdReset) ||
+           (work->rx_data[2] == kCmdReset ||
+            work->rx_data[2] == kCmdCommChg)) ||
           matchAddress(work)) {
         // Broadcasrt or for this device.
         if (work->rx_data[work->rx_size - 1] != sum) {
+          // Handles check sum error cases.
           if (work->address[0] == kHostAddress) {
             // Host mode does not need to send an error response back.
             // Set `rx_error` flag instead for later references.
@@ -394,7 +401,15 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
         break;
       case kCmdProtocolVer:
         pushReport(lib, kReportOk);
-        pushReport(lib, 0x10);
+        if (work->data->setCommSupMode &&
+            (work->data->setCommSupMode(work->data, k1M, true) ||
+             work->data->setCommSupMode(work->data, k3M, true))) {
+          // Activate the JVS Dash high speed modes if underlying implementation
+          // provides functionalities to upgrade the protocol.
+          pushReport(lib, 0x20);
+        } else {
+          pushReport(lib, 0x10);
+        }
         break;
       case kCmdMainId:
         // We may hold the Id to provide it for the client code, but let's just
@@ -405,6 +420,21 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
       case kCmdRetry:
         sendStatus(work);
         break;
+      case kCmdCommSup:
+        pushReport(lib, kReportOk);
+        pushReport(
+            lib,
+            1 | (work->data->setCommSupMode(work->data, k1M, true) ? 2 : 0) |
+                (work->data->setCommSupMode(work->data, k3M, true) ? 4 : 0));
+        break;
+      case kCmdCommChg:
+        if (work->data->setCommSupMode(
+                work->data, work->rx_data[work->rx_read_ptr + 1], false)) {
+          work->comm_mode = work->rx_data[work->rx_read_ptr + 1];
+        }
+        work->rx_available = false;
+        work->rx_receiving = false;
+        return NULL;
       case kCmdIoId:
       case kCmdFunctionCheck:
       case kCmdSwInput:
@@ -539,6 +569,7 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   work->new_address = kBroadcastAddress;
   work->tx_report_size = 0;
   work->downstream_ready = false;
+  work->comm_mode = k115200;
   for (uint8_t i = 0; i < work->nodes; ++i)
     work->address[i] = kBroadcastAddress;
   return jvsio;
