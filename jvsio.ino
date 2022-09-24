@@ -15,7 +15,7 @@
 //#define PROMICRO
 
 #if defined(MIGHTY)
-# include "clients/MightyClient.h"
+#include "clients/MightyClient.h"
 // JVS pins for MightyCore TQFP44
 //  D8  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
 //  D10 - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)
@@ -25,7 +25,7 @@ MightySenseClient sense;
 JVSIO::LedClient led;
 static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Mighty Core";
 #elif defined(PROMICRO)
-# include "clients/ProMicroClient.h"
+#include "clients/ProMicroClient.h"
 // JVS pins for SparkFun Pro Micro
 //  D0  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
 //  D2  - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)
@@ -34,9 +34,10 @@ static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Mighty Core";
 ProMicroDataClient data;
 ProMicroSenseClient sense;
 ProMicroLedClient led;
-static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for SparkFun Pro Micro";
+static const char id[] =
+    "SEGA ENTERPRISES,LTD.compat;Sample for SparkFun Pro Micro";
 #else
-# include "clients/NanoClient.h"
+#include "clients/NanoClient.h"
 // JVS pins for Arduino Nano/Uno
 //  D0  - JVS Data+  => USB Type B Pin 3 (D+ Pin in USB proper use)
 //  D2  - JVS Data-  => USB Type B Pin 2 (D- Pin in USB proper use)
@@ -45,18 +46,16 @@ static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for SparkFun Pro Mi
 NanoDataClient data;
 NanoSenseClient sense;
 NanoLedClient led;
-static const char id[] = "SEGA ENTERPRISES,LTD.compat;Sample for Arduino NANO/UNO";
+static const char id[] =
+    "SEGA ENTERPRISES,LTD.compat;Sample for Arduino NANO/UNO";
 #endif
 
 JVSIO io(&data, &sense, &led);
 
 void setup() {
-  // TODO : factor out following Serial initialization code into LogClient or
-  // something. See also another TODO in JVSIO.cpp - dump().
-  Serial.begin(115200);
-  Serial.println(id);
-  delayMicroseconds(1000000);
   io.begin();
+  static_cast<JVSIO::DataClient*>(&data)->dump(id, nullptr, 0);
+  delay(100);
 }
 
 void loop() {
@@ -66,65 +65,65 @@ void loop() {
     return;
 
   switch (*data) {
-   case JVSIO::kCmdIoId:
-    io.pushReport(JVSIO::kReportOk);
-    for (size_t i = 0; id[i]; ++i)
-      io.pushReport(id[i]);
-    io.pushReport(0);
-    break;
-   case JVSIO::kCmdFunctionCheck:
-    io.pushReport(JVSIO::kReportOk);
+    case JVSIO::kCmdIoId:
+      io.pushReport(JVSIO::kReportOk);
+      for (size_t i = 0; id[i]; ++i)
+        io.pushReport(id[i]);
+      io.pushReport(0);
+      break;
+    case JVSIO::kCmdFunctionCheck:
+      io.pushReport(JVSIO::kReportOk);
 
-    io.pushReport(0x01);  // sw
-    io.pushReport(0x02);  // players
-    io.pushReport(0x0C);  // buttons
-    io.pushReport(0x00);
+      io.pushReport(0x01);  // sw
+      io.pushReport(0x02);  // players
+      io.pushReport(0x0C);  // buttons
+      io.pushReport(0x00);
 
-    io.pushReport(0x02);  // coin
-    io.pushReport(0x02);  // slots
-    io.pushReport(0x00);
-    io.pushReport(0x00);
+      io.pushReport(0x02);  // coin
+      io.pushReport(0x02);  // slots
+      io.pushReport(0x00);
+      io.pushReport(0x00);
 
-    io.pushReport(0x03);  // analog inputs
-    io.pushReport(0x08);  // channels
-    io.pushReport(0x00);  // bits
-    io.pushReport(0x00);
+      io.pushReport(0x03);  // analog inputs
+      io.pushReport(0x08);  // channels
+      io.pushReport(0x00);  // bits
+      io.pushReport(0x00);
 
-    io.pushReport(0x12);  // general purpose driver
-    io.pushReport(0x08);  // slots
-    io.pushReport(0x00);
-    io.pushReport(0x00);
+      io.pushReport(0x12);  // general purpose driver
+      io.pushReport(0x08);  // slots
+      io.pushReport(0x00);
+      io.pushReport(0x00);
 
-    io.pushReport(0x00);
-    break;
-   case JVSIO::kCmdSwInput:
-    io.pushReport(JVSIO::kReportOk);
-    io.pushReport(0x00);  // TEST, TILT1-3, and undefined x4.
-    for (size_t player = 0; player < data[1]; ++player) {
-      for (size_t line = 1; line <= data[2]; ++line)
+      io.pushReport(0x00);
+      break;
+    case JVSIO::kCmdSwInput:
+      io.pushReport(JVSIO::kReportOk);
+      io.pushReport(0x00);  // TEST, TILT1-3, and undefined x4.
+      for (size_t player = 0; player < data[1]; ++player) {
+        for (size_t line = 1; line <= data[2]; ++line)
+          io.pushReport(0x00);
+      }
+      break;
+    case JVSIO::kCmdCoinInput:
+      io.pushReport(JVSIO::kReportOk);
+      for (size_t slot = 0; slot < data[1]; ++slot) {
         io.pushReport(0x00);
-    }
-    break;
-   case JVSIO::kCmdCoinInput:
-    io.pushReport(JVSIO::kReportOk);
-    for (size_t slot = 0; slot < data[1]; ++slot) {
-      io.pushReport(0x00);
-      io.pushReport(0x00);
-    }
-    break;
-   case JVSIO::kCmdAnalogInput:
-    io.pushReport(JVSIO::kReportOk);
-    for (size_t channel = 0; channel < data[1]; ++channel) {
-      io.pushReport(0x80);
-      io.pushReport(0x00);
-    }
-    break;
-   case JVSIO::kCmdCoinSub:
-   case JVSIO::kCmdCoinAdd:
-    io.pushReport(JVSIO::kReportOk);
-    break;
-   case JVSIO::kCmdDriverOutput:
-    io.pushReport(JVSIO::kReportOk);
-    break;
+        io.pushReport(0x00);
+      }
+      break;
+    case JVSIO::kCmdAnalogInput:
+      io.pushReport(JVSIO::kReportOk);
+      for (size_t channel = 0; channel < data[1]; ++channel) {
+        io.pushReport(0x80);
+        io.pushReport(0x00);
+      }
+      break;
+    case JVSIO::kCmdCoinSub:
+    case JVSIO::kCmdCoinAdd:
+      io.pushReport(JVSIO::kReportOk);
+      break;
+    case JVSIO::kCmdDriverOutput:
+      io.pushReport(JVSIO::kReportOk);
+      break;
   }
 }

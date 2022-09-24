@@ -7,18 +7,25 @@
 
 #include <stdint.h>
 
-#include "Arduino.h"
 #include "../JVSIO.h"
+#include "Arduino.h"
 
-template <int NUM_PLUS, int NUM_MINUS, int BIT_PLUS, int BIT_MINUS,
-          int ADDR_PLUS, int ADDR_MINUS>
+template <int NUM_PLUS,
+          int NUM_MINUS,
+          int BIT_PLUS,
+          int BIT_MINUS,
+          int ADDR_PLUS,
+          int ADDR_MINUS>
 class BaseDataClient final : public JVSIO::DataClient {
+ public:
+  BaseDataClient() { Serial.begin(115200); }
+
  private:
-  static constexpr uint8_t portNumPlus   = NUM_PLUS;
-  static constexpr uint8_t portNumMinus  = NUM_MINUS;
-  static constexpr uint8_t portBitPlus   = BIT_PLUS;
-  static constexpr uint8_t portBitMinus  = BIT_MINUS;
-  static constexpr uint8_t portAddrPlus  = ADDR_PLUS;
+  static constexpr uint8_t portNumPlus = NUM_PLUS;
+  static constexpr uint8_t portNumMinus = NUM_MINUS;
+  static constexpr uint8_t portBitPlus = BIT_PLUS;
+  static constexpr uint8_t portBitMinus = BIT_MINUS;
+  static constexpr uint8_t portAddrPlus = ADDR_PLUS;
   static constexpr uint8_t portAddrMinus = ADDR_MINUS;
 
   HardwareSerial& GetSerial() { return Serial; }
@@ -47,64 +54,75 @@ class BaseDataClient final : public JVSIO::DataClient {
 
         // Spends 134t = 8 + 1 + 3 x N - 1 + 2 + 4; N = 40
         "1:\n"
-        "brcs 2f\n"                                 // 2t (1t for not taken)
-        "nop\n"                                     // 1t
-        "cbi %[portAddrDPlus], %[portBitDPlus]\n"   // 2t
-        "sbi %[portAddrDMinus], %[portBitDMinus]\n" // 2t
-        "rjmp 3f\n"                                 // 2t (1 + 1 + 2 + 2 + 2)
+        "brcs 2f\n"                                  // 2t (1t for not taken)
+        "nop\n"                                      // 1t
+        "cbi %[portAddrDPlus], %[portBitDPlus]\n"    // 2t
+        "sbi %[portAddrDMinus], %[portBitDMinus]\n"  // 2t
+        "rjmp 3f\n"                                  // 2t (1 + 1 + 2 + 2 + 2)
         "2:\n"
-        "sbi %[portAddrDPlus], %[portBitDPlus]\n"   // 2t
-        "cbi %[portAddrDMinus], %[portBitDMinus]\n" // 2t
-        "rjmp 3f\n"                                 // 2t (2 + 2 + 2 + 2)
+        "sbi %[portAddrDPlus], %[portBitDPlus]\n"    // 2t
+        "cbi %[portAddrDMinus], %[portBitDMinus]\n"  // 2t
+        "rjmp 3f\n"                                  // 2t (2 + 2 + 2 + 2)
         "3:\n"
-        "ldi r19, 40\n" // 1t
+        "ldi r19, 40\n"  // 1t
         "2:\n"
-        "dec r19\n" // 1t
-        "brne 2b\n" // 2t (1t for not taken)
-        "nop\n"     // 1t
-        "nop\n"     // 1t
-        "ret\n"     // 4t
+        "dec r19\n"  // 1t
+        "brne 2b\n"  // 2t (1t for not taken)
+        "nop\n"      // 1t
+        "nop\n"      // 1t
+        "ret\n"      // 4t
 
         // Sends Start, bit 0, ..., bit 7, Stop
         "4:\n"
         "mov r18, %[data]\n"
         // Start bit
-        "sec\n"      // 1t
-        "rcall 1b\n" // 3t
-        "clc\n"      // 1t
-        "rcall 1b\n" // 3t
+        "sec\n"       // 1t
+        "rcall 1b\n"  // 3t
+        "clc\n"       // 1t
+        "rcall 1b\n"  // 3t
         // Bit 0
-        "ror r18\n"  // 1t
-        "rcall 1b\n" // 3t
+        "ror r18\n"   // 1t
+        "rcall 1b\n"  // 3t
         // Bit 1
-        "ror r18\n"  // 1t
-        "rcall 1b\n" // 3t
+        "ror r18\n"   // 1t
+        "rcall 1b\n"  // 3t
         // Bit 2
-        "ror r18\n"  // 1t
-        "rcall 1b\n" // 3t
+        "ror r18\n"   // 1t
+        "rcall 1b\n"  // 3t
         // Bit 3
-        "ror r18\n"  // 1t
-        "rcall 1b\n" // 3t
+        "ror r18\n"   // 1t
+        "rcall 1b\n"  // 3t
         // Bit 4
-        "ror r18\n"  // 1t
-        "rcall 1b\n" // 3t
+        "ror r18\n"   // 1t
+        "rcall 1b\n"  // 3t
         // Bit 5
-        "ror r18\n"  // 1t
-        "rcall 1b\n" // 3t
+        "ror r18\n"   // 1t
+        "rcall 1b\n"  // 3t
         // Bit 6
-        "ror r18\n"  // 1t
-        "rcall 1b\n" // 3t
+        "ror r18\n"   // 1t
+        "rcall 1b\n"  // 3t
         // Bit 7
-        "ror r18\n"  // 1t
-        "rcall 1b\n" // 3t
+        "ror r18\n"   // 1t
+        "rcall 1b\n"  // 3t
         // Stop bit
-        "sec\n"      // 1t
-        "rcall 1b\n" // 3t
-        :            // output operands
-        :            // input operands
+        "sec\n"       // 1t
+        "rcall 1b\n"  // 3t
+        :             // output operands
+        :             // input operands
         [data] "r"(data), [portAddrDPlus] "I"(portAddrPlus),
         [portAddrDMinus] "I"(portAddrMinus), [portBitDPlus] "I"(portBitPlus),
         [portBitDMinus] "I"(portBitMinus));
+  }
+  void dump(const char* str, uint8_t* data, uint8_t len) {
+    Serial.print(str);
+    Serial.print(": ");
+    for (uint8_t i = 0; i < len; ++i) {
+      if (data[i] < 16)
+        Serial.print("0");
+      Serial.print(data[i], HEX);
+      Serial.print(" ");
+    }
+    Serial.println("");
   }
 };
 
@@ -138,7 +156,8 @@ class BaseSenseClient : public JVSIO::SenseClient {
 };
 
 template <int PORT, int TCCRA_VAL, int TCCRA_FLIP, int OCRA_VAL, int SENSE>
-class BaseSenseClientSupportingDaisyChain final : public BaseSenseClient<PORT, TCCRA_VAL, TCCRA_FLIP, OCRA_VAL> {
+class BaseSenseClientSupportingDaisyChain final
+    : public BaseSenseClient<PORT, TCCRA_VAL, TCCRA_FLIP, OCRA_VAL> {
  private:
   void begin() override {
     BaseSenseClient<PORT, TCCRA_VAL, TCCRA_FLIP, OCRA_VAL>::begin();
@@ -154,9 +173,7 @@ class BaseSenseClientSupportingDaisyChain final : public BaseSenseClient<PORT, T
 template <int PORT>
 class BaseHostSenseClient final : public JVSIO::SenseClient {
  private:
-  void begin() override {
-    pinMode(PORT, INPUT_PULLUP);
-  }
+  void begin() override { pinMode(PORT, INPUT_PULLUP); }
   // 0.0V: ready.
   // 2.5V: connected (address configuration is still needed)
   // 5.0V: disconnected.

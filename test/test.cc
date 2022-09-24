@@ -83,6 +83,7 @@ class ClientTest : public ::testing::Test {
     data_.write = WriteData;
     data_.delayMicroseconds = Delay;
     data_.delay = Delay;
+    data_.dump = Dump;
     data_.work = this;
 
     sense_.begin = DoNothingForSense;
@@ -132,6 +133,15 @@ class ClientTest : public ::testing::Test {
     }
   }
   static void Delay(JVSIO_DataClient* client, unsigned int time) {}
+  static void Dump(JVSIO_DataClient* client,
+                   const char* str,
+                   uint8_t* data,
+                   uint8_t len) {
+    fprintf(stderr, "%s: ", str);
+    for (uint8_t i = 0; i < len; ++i)
+      fprintf(stderr, "%02x", data[i]);
+    fprintf(stderr, "\n");
+  }
   static void DoNothingForSense(JVSIO_SenseClient* client) {}
   static void SetSense(JVSIO_SenseClient* client, bool ready) {
     ClientTest::From(client)->SetReady(ready);

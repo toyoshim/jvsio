@@ -35,6 +35,10 @@ struct JVSIO_DataClient {
   bool (*setCommSupMode)(struct JVSIO_DataClient* client,
                          enum JVSIO_CommSupMode mode,
                          bool dryrun);
+  void (*dump)(struct JVSIO_DataClient* client,
+               const char* str,
+               uint8_t* data,
+               uint8_t len);
   void* work;
 };
 

@@ -11,11 +11,11 @@
 
 #include "BaseClient.h"
 
-// Data+: 0 (RXI) (PD0)
-// Data-: 2       (PD2)
+// Data+: D0 (RXD) (PD0)
+// Data-: D2       (PD2)
 using NanoDataClient = BaseDataClient<0, 2, 0, 2, 0x0b, 0x0b>;
 
-// Sense: 3 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
+// Sense: D3 (PWM OC2B - RC LPF of 100nF, 100Ω is needed to generate 2.5V)
 using NanoSenseClient = BaseSenseClient<3, 0b00010010, 0b00010000, 1>;
 
 // Downstream Sense: A5 (0V - ready, 5V - terminated, 2.5V - not ready)
@@ -25,7 +25,7 @@ using NanoSenseClientSupportingDaisyChain =
 // Host Sense: A0 (0V - ready, 5V - disconnected, 2.5V - connected)
 using NanoHostSenseClient = BaseHostSenseClient<A0>;
 
-// LED Ready: 13
+// LED Ready: D13
 using NanoLedClient = BaseLedClient<13>;
 
 #endif  // !defined(__NanoClient_H__)

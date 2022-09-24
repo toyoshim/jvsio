@@ -7,6 +7,8 @@
 #if !defined(__JVSIO_H__)
 #define __JVSIO_H__
 
+struct JVSIO_Lib;
+
 // JVSIO provides JVS (Jamma Video Standard 3.0) I/O transport,
 // differential serial at 115.2Kbps, 8-bits, 1-start/stop bits, non parity.
 // This library can not use with the Serial library because RXI is used
@@ -30,7 +32,8 @@ class JVSIO {
     virtual void startTransaction() {}
     virtual void endTransaction() {}
     virtual uint8_t read() { return 0; }
-    virtual void write(uint8_t data) {}
+    virtual void write(uint8_t data){};
+    virtual void dump(const char* str, uint8_t* data, uint8_t len) {}
   };
   class SenseClient {
    public:
@@ -93,35 +96,7 @@ class JVSIO {
   bool sendAndReceive(const uint8_t* packet, uint8_t** ack, uint8_t* ack_len);
 
  private:
-  void receive();
-  uint8_t* receiveStatus(uint8_t* len);
-
-  void senseNotReady();
-  void senseReady();
-
-  void sendPacket(const uint8_t* packet);
-  void sendStatus();
-  void sendOkStatus();
-  void sendUnknownCommandStatus();
-  void sendSumErrorStatus();
-  void sendOverflowStatus();
-
-  DataClient* data_;
-  SenseClient* sense_;
-  LedClient* led_;
-  uint8_t nodes_;
-  uint8_t rx_data_[256];
-  uint8_t rx_size_;
-  uint8_t rx_read_ptr_;
-  bool rx_receiving_;
-  bool rx_escaping_;
-  bool rx_available_;
-  bool rx_error_;
-  uint8_t address_[2];
-  uint8_t new_address_;
-  uint8_t tx_data_[256];
-  uint8_t tx_report_size_;
-  bool downstream_ready_;
+  JVSIO_Lib* io;
 };
 
 #endif  // !defined(__JVSIO_H__)

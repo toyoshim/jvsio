@@ -6,10 +6,6 @@
 
 #include <stdlib.h>
 
-#if defined(__TEST__)
-#include <stdio.h>
-#endif
-
 struct JVSIO_Work {
   struct JVSIO_DataClient* data;
   struct JVSIO_SenseClient* sense;
@@ -40,47 +36,6 @@ enum {
   kSync = 0xE0,
 };
 
-#ifdef __SDCC
-#pragma save
-#pragma disable_warning 85
-#include "serial.h"
-#endif
-static void dump(const char* str, uint8_t* data, size_t len) {
-  // TODO: Define DebugClient.
-  // do Serial.begin(); for Arduino series which have native USB CDC (=Serial),
-  // such as Leonardo, ProMicro, etc.
-#if defined(__TEST__)
-  fprintf(stderr, "%s: ", str);
-#else
-  Serial.print(str);
-  Serial.print(": ");
-#endif
-  for (size_t i = 0; i < len; ++i) {
-#if !defined(__TEST__)
-    if (data[i] < 16)
-      Serial.print("0");
-#endif
-#if defined(__TEST__)
-    fprintf(stderr, "%02x ", data[i]);
-#elif defined(__SDCC)
-    Serial.printc(data[i], HEX);
-#else
-    Serial.print(data[i], HEX);
-#endif
-#if !defined(__TEST__)
-    Serial.print(" ");
-#endif
-  }
-#if defined(__TEST__)
-  fprintf(stderr, "\n");
-#else
-  Serial.println("");
-#endif
-}
-#ifdef __SDCC
-#pragma restore
-#endif
-
 static void writeEscapedByte(struct JVSIO_DataClient* client, uint8_t data) {
   if (data == kMarker || data == kSync) {
     client->write(client, kMarker);
@@ -90,7 +45,9 @@ static void writeEscapedByte(struct JVSIO_DataClient* client, uint8_t data) {
   }
 }
 
-static uint8_t getCommandSize(uint8_t* command, uint8_t len) {
+static uint8_t getCommandSize(struct JVSIO_Work* work,
+                              uint8_t* command,
+                              uint8_t len) {
   switch (*command) {
     case kCmdReset:
     case kCmdAddressSet:
@@ -139,7 +96,7 @@ static uint8_t getCommandSize(uint8_t* command, uint8_t len) {
     case kCmdCommChg:
       return 2;
     default:
-      dump("unknown command", command, 1);
+      work->data->dump(work->data, "unknown command", command, 1);
       return 0;  // not supported
   }
   uint8_t size = 2;
@@ -362,8 +319,8 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
       sendOkStatus(work);
       continue;
     }
-    uint8_t command_size =
-        getCommandSize(&work->rx_data[work->rx_read_ptr], max_command_size);
+    uint8_t command_size = getCommandSize(
+        work, &work->rx_data[work->rx_read_ptr], max_command_size);
     if (!command_size) {
       sendUnknownCommandStatus(work);
       continue;
@@ -380,14 +337,15 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
           work->address[i] = kBroadcastAddress;
         work->rx_available = false;
         work->rx_receiving = false;
-        dump("reset", NULL, 0);
+        work->data->dump(work->data, "reset", NULL, 0);
         work->rx_read_ptr += command_size;
         *len = command_size;
         return &work->rx_data[work->rx_read_ptr - command_size];
       case kCmdAddressSet:
         if (work->downstream_ready) {
           work->new_address = work->rx_data[work->rx_read_ptr + 1];
-          dump("address", &work->rx_data[work->rx_read_ptr + 1], 1);
+          work->data->dump(work->data, "address",
+                           &work->rx_data[work->rx_read_ptr + 1], 1);
         }
         pushReport(lib, kReportOk);
         break;
