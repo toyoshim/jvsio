@@ -34,13 +34,6 @@ static uint8_t data_read(struct JVSIO_DataClient* client) {
 static void data_write(struct JVSIO_DataClient* client, uint8_t data) {
   static_cast<JVSIO::DataClient*>(client->work)->write(data);
 }
-static void data_delayMicroseconds(struct JVSIO_DataClient* client,
-                                   unsigned int usec) {
-  delayMicroseconds(usec);
-}
-static void data_delay(struct JVSIO_DataClient* client, unsigned int msec) {
-  delay(msec);
-}
 static bool data_setCommSupMode(struct JVSIO_DataClient* client,
                                 enum JVSIO_CommSupMode mode,
                                 bool dryrun) {
@@ -64,23 +57,31 @@ static bool sense_isReady(struct JVSIO_SenseClient* client) {
 static bool sense_isConnected(struct JVSIO_SenseClient* client) {
   return static_cast<JVSIO::SenseClient*>(client->work)->isConnected();
 }
-
 static void led_begin(struct JVSIO_LedClient* client) {
   static_cast<JVSIO::LedClient*>(client->work)->begin();
 }
 static void led_set(struct JVSIO_LedClient* client, bool ready) {
   static_cast<JVSIO::LedClient*>(client->work)->set(ready);
 }
+static void time_delayMicroseconds(struct JVSIO_TimeClient* client,
+                                   unsigned int usec) {
+  delayMicroseconds(usec);
+}
+static void time_delay(struct JVSIO_TimeClient* client, unsigned int msec) {
+  delay(msec);
+}
 
 static JVSIO_DataClient data_client;
 static JVSIO_SenseClient sense_client;
 static JVSIO_LedClient led_client;
+static JVSIO_TimeClient time_client;
 
 }  // namespace
 
 JVSIO::JVSIO(DataClient* data,
              SenseClient* sense,
              LedClient* led,
+             TimeClient* time,
              uint8_t nodes) {
   data_client.available = data_available;
   data_client.setInput = data_setInput;
@@ -89,8 +90,6 @@ JVSIO::JVSIO(DataClient* data,
   data_client.endTransaction = data_endTransaction;
   data_client.read = data_read;
   data_client.write = data_write;
-  data_client.delayMicroseconds = data_delayMicroseconds;
-  data_client.delay = data_delay;
   data_client.setCommSupMode = data_setCommSupMode;
   data_client.dump = data_dump;
   data_client.work = static_cast<void*>(data);
@@ -105,7 +104,11 @@ JVSIO::JVSIO(DataClient* data,
   led_client.set = led_set;
   led_client.work = static_cast<void*>(led);
 
-  io = JVSIO_open(&data_client, &sense_client, &led_client, nodes);
+  time_client.delayMicroseconds = data_delayMicroseconds;
+  time_client.delay = data_delay;
+
+  io = JVSIO_open(
+      &data_client, &sense_client, &led_client, &time_client, nodes);
 }
 
 JVSIO::~JVSIO() {

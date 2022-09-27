@@ -6,10 +6,22 @@
 
 #include <stdlib.h>
 
+enum State {
+  STATE_DISCONNECTED = 0,
+  STATE_CONNECTED,
+  STATE_RESET,
+  STATE_WAIT,
+  STATE_RESET2,
+  STATE_ADDRESS,
+
+  STATE_READY,
+};
+
 struct JVSIO_Work {
   struct JVSIO_DataClient* data;
   struct JVSIO_SenseClient* sense;
   struct JVSIO_LedClient* led;
+  struct JVSIO_TimeClient* time;
   uint8_t nodes;
   uint8_t rx_data[256];
   uint8_t rx_size;
@@ -24,6 +36,8 @@ struct JVSIO_Work {
   uint8_t tx_report_size;
   bool downstream_ready;
   enum JVSIO_CommSupMode comm_mode;
+  enum State state;
+  uint32_t tick;
 };
 
 static struct JVSIO_Lib lib;
@@ -153,7 +167,7 @@ static void sendStatus(struct JVSIO_Work* work) {
   if (work->comm_mode == k115200) {
     // Spec requires 100usec interval at minimum between each packet.
     // But response should be sent within 1msec from the last byte received.
-    work->data->delayMicroseconds(work->data, 100);
+    work->time->delayMicroseconds(work->time, 100);
   }
 
   // Address is just assigned.
@@ -419,6 +433,15 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
 }
 
 #if !defined(__NO_JVS_HOST__)
+static bool timeInRange(uint32_t start, uint32_t now, uint32_t duration) {
+  uint32_t end = start + duration;
+  if (end < start) {
+    // The uint32_t value wraps. So, "end < now < start" is out of the range.
+    return !(end < now && now < start);
+  }
+  return start <= now && now <= end;
+}
+
 static uint8_t* receiveStatus(struct JVSIO_Work* work, uint8_t* len) {
   do {
     receive(work);  // TODO: timeout.
@@ -452,7 +475,7 @@ static bool boot(struct JVSIO_Lib* lib, bool block) {
   work->address[0] = kHostAddress;
 
   // Spec requires to wait for 2 seconds before starting any host operation.
-  work->data->delay(work->data, 2000);
+  work->time->delay(work->time, 2000);
 
   bool stop = false;
   for (;;) {
@@ -469,10 +492,10 @@ static bool boot(struct JVSIO_Lib* lib, bool block) {
     work->tx_data[3] = 0xd9;  // Magic number.
     work->data->setOutput(work->data);
     sendPacket(work, work->tx_data);
-    work->data->delayMicroseconds(work->data, 100);
+    work->time->delayMicroseconds(work->time, 100);
     work->data->setInput(work->data);
     sendPacket(work, work->tx_data);
-    work->data->delayMicroseconds(work->data, 100);
+    work->time->delayMicroseconds(work->time, 100);
 
     // Set address.
     work->tx_data[0] = kBroadcastAddress;
@@ -487,18 +510,64 @@ static bool boot(struct JVSIO_Lib* lib, bool block) {
       continue;
     if (ack[0] != 1 || ack[1] != 1)
       continue;
-    work->data->delayMicroseconds(work->data, 1000);
+    work->time->delayMicroseconds(work->time, 1000);
     if (!work->sense->isReady(work->sense))
       continue;
     break;
   }
   return true;
 }
+
+static bool host(struct JVSIO_Lib* lib) {
+  struct JVSIO_Work* work = lib->work;
+  bool connected = work->sense->isConnected(work->sense);
+  if (!connected)
+    work->state = STATE_DISCONNECTED;
+  switch (work->state) {
+    case STATE_DISCONNECTED:
+      if (connected) {
+        if (work->sense->isReady(work->sense)) {
+          // Unexpected transition. The last sensed signal may be noisy.
+          work->state = STATE_READY;
+        } else {
+          work->tick = work->time->getTick(work->time);
+          work->state = STATE_CONNECTED;
+        }
+        return false;
+      }
+      break;
+    case STATE_CONNECTED:
+    case STATE_WAIT:
+      // Wait til 500[ms] to operate the RESET.
+      if (timeInRange(work->tick, work->time->getTick(work->time), 500))
+        break;
+      work->state++;
+    case STATE_RESET:
+    case STATE_RESET2:
+      work->data->dump(0, "RESET", 0, 0);
+      work->tx_data[0] = kBroadcastAddress;
+      work->tx_data[1] = 3;  // Bytes
+      work->tx_data[2] = kCmdReset;
+      work->tx_data[3] = 0xd9;  // Magic number.
+      work->data->setOutput(work->data);
+      sendPacket(work, work->tx_data);
+      work->data->setInput(work->data);
+      work->tick = work->time->getTick(work->time);
+      work->state++;
+      break;
+    case STATE_ADDRESS:
+      // TODO
+    default:
+      break;
+  }
+  return false;
+}
 #endif
 
 struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
                              struct JVSIO_SenseClient* sense,
                              struct JVSIO_LedClient* led,
+                             struct JVSIO_TimeClient* time,
                              uint8_t nodes) {
   lib.work = &work;
   struct JVSIO_Lib* jvsio = &lib;
@@ -512,11 +581,15 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
 #if !defined(__NO_JVS_HOST__)
   jvsio->boot = boot;
   jvsio->sendAndReceive = sendAndReceive;
+  jvsio->host = host;
+
+  work->state = STATE_DISCONNECTED;
 #endif
 
   work->data = data;
   work->sense = sense;
   work->led = led;
+  work->time = time;
   work->nodes = nodes ? nodes : 1;
   work->rx_size = 0;
   work->rx_read_ptr = 0;

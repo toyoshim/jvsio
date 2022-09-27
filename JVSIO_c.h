@@ -30,8 +30,6 @@ struct JVSIO_DataClient {
   void (*endTransaction)(struct JVSIO_DataClient* client);
   uint8_t (*read)(struct JVSIO_DataClient* client);
   void (*write)(struct JVSIO_DataClient* client, uint8_t data);
-  void (*delayMicroseconds)(struct JVSIO_DataClient* client, unsigned int usec);
-  void (*delay)(struct JVSIO_DataClient* client, unsigned int msec);
   bool (*setCommSupMode)(struct JVSIO_DataClient* client,
                          enum JVSIO_CommSupMode mode,
                          bool dryrun);
@@ -53,6 +51,13 @@ struct JVSIO_SenseClient {
 struct JVSIO_LedClient {
   void (*begin)(struct JVSIO_LedClient* client);
   void (*set)(struct JVSIO_LedClient* client, bool ready);
+  void* work;
+};
+
+struct JVSIO_TimeClient {
+  void (*delayMicroseconds)(struct JVSIO_TimeClient* client, unsigned int usec);
+  void (*delay)(struct JVSIO_TimeClient* client, unsigned int msec);
+  uint32_t (*getTick)(struct JVSIO_TimeClient* client);
   void* work;
 };
 
@@ -114,6 +119,7 @@ struct JVSIO_Lib {
                          const uint8_t* packet,
                          uint8_t** ack,
                          uint8_t* ack_len);
+  bool (*host)(struct JVSIO_Lib* lib);
 #endif
 
   struct JVSIO_Work* work;
@@ -122,6 +128,7 @@ struct JVSIO_Lib {
 struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
                              struct JVSIO_SenseClient* sense,
                              struct JVSIO_LedClient* led,
+                             struct JVSIO_TimeClient* time,
                              uint8_t nodes);
 
 void JVSIO_close(struct JVSIO_Lib* lib);

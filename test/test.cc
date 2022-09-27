@@ -81,8 +81,6 @@ class ClientTest : public ::testing::Test {
     data_.endTransaction = DoNothingForData;
     data_.read = ReadData;
     data_.write = WriteData;
-    data_.delayMicroseconds = Delay;
-    data_.delay = Delay;
     data_.dump = Dump;
     data_.work = this;
 
@@ -96,7 +94,11 @@ class ClientTest : public ::testing::Test {
     led_.set = SetLed;
     led_.work = this;
 
-    io_ = JVSIO_open(&data_, &sense_, &led_, 1);
+    time_.delayMicroseconds = Delay;
+    time_.delay = Delay;
+    time_.work = this;
+
+    io_ = JVSIO_open(&data_, &sense_, &led_, &time_, 1);
     ASSERT_TRUE(io_);
     io_->begin(io_);
   }
@@ -132,7 +134,7 @@ class ClientTest : public ::testing::Test {
         self->outgoing_data_.push_back(data);
     }
   }
-  static void Delay(JVSIO_DataClient* client, unsigned int time) {}
+  static void Delay(JVSIO_TimeClient* client, unsigned int time) {}
   static void Dump(JVSIO_DataClient* client,
                    const char* str,
                    uint8_t* data,
@@ -155,6 +157,7 @@ class ClientTest : public ::testing::Test {
   JVSIO_DataClient data_;
   JVSIO_SenseClient sense_;
   JVSIO_LedClient led_;
+  JVSIO_TimeClient time_;
   JVSIO_Lib* io_ = nullptr;
 
   bool ready_ = false;
