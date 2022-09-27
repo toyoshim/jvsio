@@ -58,11 +58,11 @@ static void sense_begin(struct JVSIO_SenseClient* client) {
 static void sense_set(struct JVSIO_SenseClient* client, bool ready) {
   static_cast<JVSIO::SenseClient*>(client->work)->set(ready);
 }
-static bool sense_is_ready(struct JVSIO_SenseClient* client) {
-  return static_cast<JVSIO::SenseClient*>(client->work)->is_ready();
+static bool sense_isReady(struct JVSIO_SenseClient* client) {
+  return static_cast<JVSIO::SenseClient*>(client->work)->isReady();
 }
-static bool sense_is_connected(struct JVSIO_SenseClient* client) {
-  return static_cast<JVSIO::SenseClient*>(client->work)->is_connected();
+static bool sense_isConnected(struct JVSIO_SenseClient* client) {
+  return static_cast<JVSIO::SenseClient*>(client->work)->isConnected();
 }
 
 static void led_begin(struct JVSIO_LedClient* client) {
@@ -97,8 +97,8 @@ JVSIO::JVSIO(DataClient* data,
 
   sense_client.begin = sense_begin;
   sense_client.set = sense_set;
-  sense_client.is_ready = sense_is_ready;
-  sense_client.is_connected = sense_is_connected;
+  sense_client.isReady = sense_isReady;
+  sense_client.isConnected = sense_isConnected;
   sense_client.work = static_cast<void*>(sense);
 
   led_client.begin = led_begin;

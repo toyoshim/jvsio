@@ -237,7 +237,7 @@ static void receive(struct JVSIO_Work* work) {
       work->rx_receiving = true;
       work->rx_escaping = false;
       work->rx_error = false;
-      work->downstream_ready = work->sense->is_ready(work->sense);
+      work->downstream_ready = work->sense->isReady(work->sense);
       continue;
     }
     if (!work->rx_receiving)
@@ -422,7 +422,7 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
 static uint8_t* receiveStatus(struct JVSIO_Work* work, uint8_t* len) {
   do {
     receive(work);  // TODO: timeout.
-    if (!work->sense->is_connected(work->sense))
+    if (!work->sense->isConnected(work->sense))
       return NULL;
   } while (!work->rx_available);
   if (work->rx_error)
@@ -457,7 +457,7 @@ static bool boot(struct JVSIO_Lib* lib, bool block) {
   bool stop = false;
   for (;;) {
     stop = !block;
-    while (!work->sense->is_connected(work->sense)) {
+    while (!work->sense->isConnected(work->sense)) {
       if (stop)
         return false;
     }
@@ -488,7 +488,7 @@ static bool boot(struct JVSIO_Lib* lib, bool block) {
     if (ack[0] != 1 || ack[1] != 1)
       continue;
     work->data->delayMicroseconds(work->data, 1000);
-    if (!work->sense->is_ready(work->sense))
+    if (!work->sense->isReady(work->sense))
       continue;
     break;
   }

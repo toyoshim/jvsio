@@ -88,8 +88,8 @@ class ClientTest : public ::testing::Test {
 
     sense_.begin = DoNothingForSense;
     sense_.set = SetSense;
-    sense_.is_ready = IsSenseReady;
-    sense_.is_connected = IsSenseConnected;
+    sense_.isReady = IsSenseReady;
+    sense_.isConnected = IsSenseConnected;
     sense_.work = this;
 
     led_.begin = DoNothingForLed;

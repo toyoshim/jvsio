@@ -45,8 +45,8 @@ struct JVSIO_DataClient {
 struct JVSIO_SenseClient {
   void (*begin)(struct JVSIO_SenseClient* client);
   void (*set)(struct JVSIO_SenseClient* client, bool ready);
-  bool (*is_ready)(struct JVSIO_SenseClient* client);
-  bool (*is_connected)(struct JVSIO_SenseClient* client);
+  bool (*isReady)(struct JVSIO_SenseClient* client);
+  bool (*isConnected)(struct JVSIO_SenseClient* client);
   void* work;
 };
 
