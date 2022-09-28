@@ -6,15 +6,40 @@
 
 #include <stdlib.h>
 
-enum State {
-  STATE_DISCONNECTED = 0,
-  STATE_CONNECTED,
-  STATE_RESET,
-  STATE_WAIT,
-  STATE_RESET2,
-  STATE_ADDRESS,
+enum {
+  kResetInterval = 500,
+  kResponseTimeout = 100,
+};
 
-  STATE_READY,
+enum State {
+  kStateDisconnected,
+  kStateConnected,
+  kStateReset,
+  kStateResetWaitInterval,
+  kStateReset2,
+  kStateAddress,
+  kStateAddressWaitResponse,
+  kStateReadyCheck,
+  kStateRequestIoId,
+  kStateWaitIoIdResponse,
+  kStateRequestCommandRev,
+  kStateWaitCommandRevResponse,
+  kStateRequestJvRev,
+  kStateWaitJvRevResponse,
+  kStateRequestProtocolVer,
+  kStateWaitProtocolVerResponse,
+  kStateRequestFunctionCheck,
+  kStateWaitFunctionCheckResponse,
+
+  kStateReady,
+
+  kStateRequestSync,
+  kStateWaitSyncResponse,
+  kStateWaitCoinSyncResponse,
+
+  kStateTimeout,
+  kStateInvalidResponse,
+  kStateUnexpected,
 };
 
 struct JVSIO_Work {
@@ -36,8 +61,19 @@ struct JVSIO_Work {
   uint8_t tx_report_size;
   bool downstream_ready;
   enum JVSIO_CommSupMode comm_mode;
+#if !defined(__NO_JVS_HOST__)
   enum State state;
   uint32_t tick;
+  uint8_t devices;
+  uint8_t target;
+  uint8_t players[4];
+  uint8_t buttons[4];
+  uint8_t coin_slots[4];
+  uint8_t total_player;
+  uint8_t coin_state;
+  uint8_t sw_state0[4];
+  uint8_t sw_state1[4];
+#endif
 };
 
 static struct JVSIO_Lib lib;
@@ -443,13 +479,17 @@ static bool timeInRange(uint32_t start, uint32_t now, uint32_t duration) {
 }
 
 static uint8_t* receiveStatus(struct JVSIO_Work* work, uint8_t* len) {
-  do {
-    receive(work);  // TODO: timeout.
-    if (!work->sense->isConnected(work->sense))
-      return NULL;
-  } while (!work->rx_available);
-  if (work->rx_error)
+  if (!timeInRange(work->tick, work->time->getTick(work->time),
+                   kResponseTimeout)) {
+    work->state = kStateTimeout;
     return NULL;
+  }
+
+  work->address[0] = kHostAddress;
+  receive(work);
+  if (work->rx_error || !work->rx_available)
+    return NULL;
+
   *len = work->rx_data[1] - 1;
   work->rx_size = 0;
   work->rx_available = false;
@@ -457,93 +497,31 @@ static uint8_t* receiveStatus(struct JVSIO_Work* work, uint8_t* len) {
   return &work->rx_data[2];
 }
 
-static bool sendAndReceive(struct JVSIO_Lib* lib,
-                           const uint8_t* packet,
-                           uint8_t** ack,
-                           uint8_t* ack_len) {
+static bool host(struct JVSIO_Lib* lib, struct JVSIO_HostClient* client) {
   struct JVSIO_Work* work = lib->work;
-
-  work->data->setOutput(work->data);
-  sendPacket(work, packet);
-  *ack = receiveStatus(work, ack_len);
-  return *ack != NULL;
-}
-
-static bool boot(struct JVSIO_Lib* lib, bool block) {
-  struct JVSIO_Work* work = lib->work;
-
-  work->address[0] = kHostAddress;
-
-  // Spec requires to wait for 2 seconds before starting any host operation.
-  work->time->delay(work->time, 2000);
-
-  bool stop = false;
-  for (;;) {
-    stop = !block;
-    while (!work->sense->isConnected(work->sense)) {
-      if (stop)
-        return false;
-    }
-
-    // Reset x2
-    work->tx_data[0] = kBroadcastAddress;
-    work->tx_data[1] = 3;  // Bytes
-    work->tx_data[2] = kCmdReset;
-    work->tx_data[3] = 0xd9;  // Magic number.
-    work->data->setOutput(work->data);
-    sendPacket(work, work->tx_data);
-    work->time->delayMicroseconds(work->time, 100);
-    work->data->setInput(work->data);
-    sendPacket(work, work->tx_data);
-    work->time->delayMicroseconds(work->time, 100);
-
-    // Set address.
-    work->tx_data[0] = kBroadcastAddress;
-    work->tx_data[1] = 3;  // Bytes
-    work->tx_data[2] = kCmdAddressSet;
-    work->tx_data[3] = 1;  // Address
-    uint8_t* ack;
-    uint8_t ack_len;
-    if (!sendAndReceive(lib, work->tx_data, &ack, &ack_len))
-      continue;
-    if (ack_len != 2)
-      continue;
-    if (ack[0] != 1 || ack[1] != 1)
-      continue;
-    work->time->delayMicroseconds(work->time, 1000);
-    if (!work->sense->isReady(work->sense))
-      continue;
-    break;
-  }
-  return true;
-}
-
-static bool host(struct JVSIO_Lib* lib) {
-  struct JVSIO_Work* work = lib->work;
+  uint8_t* status = 0;
+  uint8_t status_len = 0;
   bool connected = work->sense->isConnected(work->sense);
   if (!connected)
-    work->state = STATE_DISCONNECTED;
+    work->state = kStateDisconnected;
+
   switch (work->state) {
-    case STATE_DISCONNECTED:
+    case kStateDisconnected:
       if (connected) {
-        if (work->sense->isReady(work->sense)) {
-          // Unexpected transition. The last sensed signal may be noisy.
-          work->state = STATE_READY;
-        } else {
-          work->tick = work->time->getTick(work->time);
-          work->state = STATE_CONNECTED;
-        }
+        work->tick = work->time->getTick(work->time);
+        work->state = kStateConnected;
+      }
+      return false;
+    case kStateConnected:
+    case kStateResetWaitInterval:
+      // Wait til 500[ms] to operate the RESET.
+      if (timeInRange(work->tick, work->time->getTick(work->time),
+                      kResetInterval)) {
         return false;
       }
       break;
-    case STATE_CONNECTED:
-    case STATE_WAIT:
-      // Wait til 500[ms] to operate the RESET.
-      if (timeInRange(work->tick, work->time->getTick(work->time), 500))
-        break;
-      work->state++;
-    case STATE_RESET:
-    case STATE_RESET2:
+    case kStateReset:
+    case kStateReset2:
       work->data->dump(0, "RESET", 0, 0);
       work->tx_data[0] = kBroadcastAddress;
       work->tx_data[1] = 3;  // Bytes
@@ -551,16 +529,279 @@ static bool host(struct JVSIO_Lib* lib) {
       work->tx_data[3] = 0xd9;  // Magic number.
       work->data->setOutput(work->data);
       sendPacket(work, work->tx_data);
-      work->data->setInput(work->data);
       work->tick = work->time->getTick(work->time);
-      work->state++;
+      work->devices = 0;
+      work->total_player = 0;
+      work->coin_state = 0;
       break;
-    case STATE_ADDRESS:
-      // TODO
+    case kStateAddress:
+      if (work->devices == 255) {
+        work->state = kStateUnexpected;
+        return false;
+      }
+      work->tx_data[0] = kBroadcastAddress;
+      work->tx_data[1] = 3;  // Bytes
+      work->tx_data[2] = kCmdAddressSet;
+      work->tx_data[3] = ++work->devices;
+      work->data->setOutput(work->data);
+      sendPacket(work, work->tx_data);
+      work->tick = work->time->getTick(work->time);
+      break;
+    case kStateAddressWaitResponse:
+      status = receiveStatus(work, &status_len);
+      if (!status)
+        return false;
+      if (status_len != 2 || status[0] != 1 || status[1] != 1) {
+        work->state = kStateInvalidResponse;
+        return false;
+      }
+      work->tick = work->time->getTick(work->time);
+      break;
+    case kStateReadyCheck:
+      if (!work->sense->isReady(work->sense)) {
+        if (!timeInRange(work->tick, work->time->getTick(work->time), 2)) {
+          // More I/O devices exist. Assign for the next.
+          work->state = kStateAddress;
+        }
+        return false;
+      }
+      work->target = 1;
+      break;
+    case kStateRequestIoId:
+      work->tx_data[0] = work->target;
+      work->tx_data[1] = 2;  // Bytes
+      work->tx_data[2] = kCmdIoId;
+      work->data->setOutput(work->data);
+      sendPacket(work, work->tx_data);
+      work->tick = work->time->getTick(work->time);
+      break;
+    case kStateWaitIoIdResponse:
+      status = receiveStatus(work, &status_len);
+      if (!status)
+        return false;
+      if (status_len < 3 || status[0] != 1 || status[1] != 1) {
+        work->state = kStateInvalidResponse;
+        return false;
+      }
+      if (client->receiveIoId)
+        client->receiveIoId(client, work->target, &status[2], status_len - 2);
+      break;
+    case kStateRequestCommandRev:
+      work->tx_data[0] = work->target;
+      work->tx_data[1] = 2;  // Bytes
+      work->tx_data[2] = kCmdCommandRev;
+      work->data->setOutput(work->data);
+      sendPacket(work, work->tx_data);
+      work->tick = work->time->getTick(work->time);
+      break;
+    case kStateWaitCommandRevResponse:
+      status = receiveStatus(work, &status_len);
+      if (!status)
+        return false;
+      if (status_len != 3 || status[0] != 1 || status[1] != 1) {
+        work->state = kStateInvalidResponse;
+        return false;
+      }
+      if (client->receiveCommandRev)
+        client->receiveCommandRev(client, work->target, status[2]);
+      break;
+    case kStateRequestJvRev:
+      work->tx_data[0] = work->target;
+      work->tx_data[1] = 2;  // Bytes
+      work->tx_data[2] = kCmdJvRev;
+      work->data->setOutput(work->data);
+      sendPacket(work, work->tx_data);
+      work->tick = work->time->getTick(work->time);
+      break;
+    case kStateWaitJvRevResponse:
+      status = receiveStatus(work, &status_len);
+      if (!status)
+        return false;
+      if (status_len != 3 || status[0] != 1 || status[1] != 1) {
+        work->state = kStateInvalidResponse;
+        return false;
+      }
+      if (client->receiveJvRev)
+        client->receiveJvRev(client, work->target, status[2]);
+      break;
+    case kStateRequestProtocolVer:
+      work->tx_data[0] = work->target;
+      work->tx_data[1] = 2;  // Bytes
+      work->tx_data[2] = kCmdProtocolVer;
+      work->data->setOutput(work->data);
+      sendPacket(work, work->tx_data);
+      work->tick = work->time->getTick(work->time);
+      break;
+    case kStateWaitProtocolVerResponse:
+      status = receiveStatus(work, &status_len);
+      if (!status)
+        return false;
+      if (status_len != 3 || status[0] != 1 || status[1] != 1) {
+        work->state = kStateInvalidResponse;
+        return false;
+      }
+      if (client->receiveProtocolVer)
+        client->receiveProtocolVer(client, work->target, status[2]);
+      break;
+    case kStateRequestFunctionCheck:
+      work->tx_data[0] = work->target;
+      work->tx_data[1] = 2;  // Bytes
+      work->tx_data[2] = kCmdFunctionCheck;
+      work->data->setOutput(work->data);
+      sendPacket(work, work->tx_data);
+      work->tick = work->time->getTick(work->time);
+      break;
+    case kStateWaitFunctionCheckResponse:
+      status = receiveStatus(work, &status_len);
+      if (!status)
+        return false;
+      if (status_len < 3 || status[0] != 1 || status[1] != 1) {
+        work->state = kStateInvalidResponse;
+        return false;
+      }
+      if (work->target <= 4) {
+        // Doesn't support 5+ devices.
+        for (uint8_t i = 2; i < status_len; i += 4) {
+          switch (status[i]) {
+            case 0x01:
+              work->players[work->target - 1] = status[i + 1];
+              work->buttons[work->target - 1] = status[i + 2];
+              work->total_player += status[i + 1];
+              if (work->total_player > 4)
+                work->total_player = 4;
+              break;
+            case 0x02:
+              work->coin_slots[work->target - 1] = status[i + 1];
+              break;
+            default:
+              break;
+          }
+        }
+      }
+      if (client->receiveFunctionCheck) {
+        client->receiveFunctionCheck(client, work->target, &status[2],
+                                     status_len - 2);
+      }
+      if (work->target != work->devices) {
+        work->state = kStateRequestIoId;
+        work->target++;
+        return false;
+      }
+      break;
+    case kStateReady:
+      return true;
+    case kStateRequestSync: {
+      uint8_t target_index = work->target - 1;
+      work->tx_data[0] = work->target;
+      work->tx_data[1] = 6;  // Bytes
+      work->tx_data[2] = kCmdSwInput;
+      work->tx_data[3] = work->players[target_index];
+      work->tx_data[4] = (work->buttons[target_index] + 7) >> 3;
+      work->tx_data[5] = kCmdCoinInput;
+      work->tx_data[6] = work->coin_slots[target_index];
+      work->data->setOutput(work->data);
+      sendPacket(work, work->tx_data);
+      work->tick = work->time->getTick(work->time);
+      break;
+    }
+    case kStateWaitSyncResponse: {
+      status = receiveStatus(work, &status_len);
+      if (!status)
+        return false;
+      uint8_t target_index = work->target - 1;
+      uint8_t button_bytes = (work->buttons[target_index] + 7) >> 3;
+      uint8_t sw_bytes = 1 + button_bytes * work->players[target_index];
+      uint8_t coin_bytes = work->coin_slots[target_index] * 2;
+      uint8_t status_bytes = 3 + sw_bytes + coin_bytes;
+      if (status_len != status_bytes || status[0] != 1 || status[1] != 1 ||
+          status[2 + sw_bytes] != 1) {
+        work->state = kStateInvalidResponse;
+        return false;
+      }
+      uint8_t player_index = 0;
+      for (uint8_t i = 0; i < target_index; ++i) {
+        player_index += work->players[target_index];
+      }
+      work->coin_state |= status[2] & 0x80;
+      for (uint8_t player = 0; player < work->players[target_index]; ++player) {
+        work->sw_state0[player_index + player] =
+            status[3 + button_bytes * player];
+        work->sw_state1[player_index + player] =
+            status[4 + button_bytes * player];
+      }
+      for (uint8_t player = 0; player < work->coin_slots[target_index];
+           ++player) {
+        uint8_t mask = 1 << (player_index + player);
+        if (work->coin_state & mask) {
+          work->coin_state &= ~mask;
+        } else {
+          uint8_t index = 3 + sw_bytes + player * 2;
+          uint16_t coin = (status[index] << 8) | status[index + 1];
+          if (coin & 0xc000 || coin == 0)
+            continue;
+          work->coin_state |= mask;
+          work->tx_data[0] = work->target;
+          work->tx_data[1] = 5;  // Bytes
+          work->tx_data[2] = kCmdCoinSub;
+          work->tx_data[3] = 1 + player;
+          work->tx_data[4] = 0;
+          work->tx_data[5] = 1;
+          work->data->setOutput(work->data);
+          sendPacket(work, work->tx_data);
+          work->tick = work->time->getTick(work->time);
+          work->state = kStateWaitCoinSyncResponse;
+          return false;
+        }
+      }
+      if (work->target == work->devices) {
+        work->state = kStateReady;
+        if (client->synced) {
+          client->synced(client, work->total_player, work->coin_state,
+                         work->sw_state0, work->sw_state1);
+        }
+      } else {
+        work->state = kStateRequestSync;
+        work->target++;
+      }
+      return false;
+    }
+    case kStateWaitCoinSyncResponse:
+      status = receiveStatus(work, &status_len);
+      if (!status)
+        return false;
+      if (status_len != 2 || status[0] != 1 || status[1] != 1) {
+        work->state = kStateInvalidResponse;
+        return false;
+      }
+      if (work->target == work->devices) {
+        work->state = kStateReady;
+        if (client->synced) {
+          client->synced(client, work->total_player, work->coin_state,
+                         work->sw_state0, work->sw_state1);
+        }
+      } else {
+        work->state = kStateRequestSync;
+        work->target++;
+      }
+      return false;
+    case kStateTimeout:
+    case kStateInvalidResponse:
+    case kStateUnexpected:
+      work->state = kStateDisconnected;
+      return false;
     default:
       break;
   }
+  work->state++;
   return false;
+}
+
+static void sync(struct JVSIO_Lib* lib) {
+  struct JVSIO_Work* work = lib->work;
+  if (work->state != kStateReady)
+    return;
+  work->state = kStateRequestSync;
+  work->target = 1;
 }
 #endif
 
@@ -579,11 +820,10 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   jvsio->pushReport = pushReport;
   jvsio->sendUnknownStatus = sendUnknownStatus;
 #if !defined(__NO_JVS_HOST__)
-  jvsio->boot = boot;
-  jvsio->sendAndReceive = sendAndReceive;
   jvsio->host = host;
+  jvsio->sync = sync;
 
-  work->state = STATE_DISCONNECTED;
+  work->state = kStateDisconnected;
 #endif
 
   work->data = data;

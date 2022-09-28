@@ -61,6 +61,32 @@ struct JVSIO_TimeClient {
   void* work;
 };
 
+struct JVSIO_HostClient {
+  void (*receiveIoId)(struct JVSIO_HostClient* client,
+                      uint8_t address,
+                      uint8_t* data,
+                      uint8_t len);
+  void (*receiveCommandRev)(struct JVSIO_HostClient* client,
+                            uint8_t address,
+                            uint8_t rev);
+  void (*receiveJvRev)(struct JVSIO_HostClient* client,
+                       uint8_t address,
+                       uint8_t rev);
+  void (*receiveProtocolVer)(struct JVSIO_HostClient* client,
+                             uint8_t address,
+                             uint8_t rev);
+  void (*receiveFunctionCheck)(struct JVSIO_HostClient* client,
+                               uint8_t address,
+                               uint8_t* data,
+                               uint8_t len);
+  void (*synced)(struct JVSIO_HostClient* client,
+                 uint8_t players,
+                 uint8_t coin_state,
+                 uint8_t* sw_state0,
+                 uint8_t* sw_state1);
+  void* work;
+};
+
 enum JVSIO_Cmd {
   kCmdReset = 0xF0,       // mandatory
   kCmdAddressSet = 0xF1,  // mandatory
@@ -114,12 +140,8 @@ struct JVSIO_Lib {
 
 #if !defined(__NO_JVS_HOST__)
   // For hosts.
-  bool (*boot)(struct JVSIO_Lib* lib, bool block);
-  bool (*sendAndReceive)(struct JVSIO_Lib* lib,
-                         const uint8_t* packet,
-                         uint8_t** ack,
-                         uint8_t* ack_len);
-  bool (*host)(struct JVSIO_Lib* lib);
+  bool (*host)(struct JVSIO_Lib* lib, struct JVSIO_HostClient* client);
+  void (*sync)(struct JVSIO_Lib* lib);
 #endif
 
   struct JVSIO_Work* work;
