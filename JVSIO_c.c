@@ -396,8 +396,12 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
           work->new_address = work->rx_data[work->rx_read_ptr + 1];
           work->data->dump(work->data, "address",
                            &work->rx_data[work->rx_read_ptr + 1], 1);
+          pushReport(lib, kReportOk);
+        } else {
+          work->rx_available = false;
+          work->rx_receiving = false;
+          return NULL;
         }
-        pushReport(lib, kReportOk);
         break;
       case kCmdCommandRev:
         pushReport(lib, kReportOk);
