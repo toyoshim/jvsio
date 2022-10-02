@@ -846,4 +846,6 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   return jvsio;
 }
 
-void JVSIO_close(struct JVSIO_Lib* lib) {}
+void JVSIO_close(struct JVSIO_Lib* lib) {
+  lib;
+}
