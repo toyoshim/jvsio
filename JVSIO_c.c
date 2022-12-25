@@ -76,8 +76,8 @@ struct JVSIO_Work {
 #endif
 };
 
-static struct JVSIO_Lib lib;
-static struct JVSIO_Work work;
+static struct JVSIO_Lib gLib;
+static struct JVSIO_Work gWork;
 
 enum {
   kHostAddress = 0x00,
@@ -814,8 +814,8 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
                              struct JVSIO_LedClient* led,
                              struct JVSIO_TimeClient* time,
                              uint8_t nodes) {
-  lib.work = &work;
-  struct JVSIO_Lib* jvsio = &lib;
+  gLib.work = &gWork;
+  struct JVSIO_Lib* jvsio = &gLib;
   struct JVSIO_Work* work = jvsio->work;
 
   jvsio->begin = begin;
@@ -851,5 +851,5 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
 }
 
 void JVSIO_close(struct JVSIO_Lib* lib) {
-  lib;
+  (void)lib;
 }
