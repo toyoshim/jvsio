@@ -69,6 +69,18 @@ class ClientTest : public ::testing::Test {
     return status;
   }
 
+  void SetUpAddress() {
+    const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
+    SetCommand(kBroadcastAddress, kAddressSetCommand,
+               sizeof(kAddressSetCommand));
+
+    uint8_t len;
+    uint8_t* data = GetNextCommand(&len);
+    EXPECT_EQ(nullptr, data);
+
+    EXPECT_TRUE(IsReady());
+  }
+
   void SendUnknownStatus() { io_->sendUnknownStatus(io_); }
   void PushReport(uint8_t report) { io_->pushReport(io_, report); }
 
@@ -216,14 +228,7 @@ TEST_F(ClientTest, AddressSet) {
 }
 
 TEST_F(ClientTest, Namco_70_18_50_4c_14) {
-  const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
-  SetCommand(kBroadcastAddress, kAddressSetCommand, sizeof(kAddressSetCommand));
-
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
-
-  EXPECT_TRUE(IsReady());
+  SetUpAddress();
 
   std::vector<uint8_t> reports;
   uint8_t status = GetStatus(reports);
@@ -234,7 +239,8 @@ TEST_F(ClientTest, Namco_70_18_50_4c_14) {
   const uint8_t kCommand[] = {kCmdNamco, 0x18, 0x50, 0x4c, 0x14, 0xd0,
                               0x3b,      0x57, 0x69, 0x6e, 0x41, 0x72};
   SetCommand(kClientAddress, kCommand, sizeof(kCommand));
-  data = GetNextCommand(&len);
+  uint8_t len;
+  uint8_t* data = GetNextCommand(&len);
   EXPECT_EQ(kCmdNamco, data[0]);
   EXPECT_EQ(0x18, data[1]);
   EXPECT_EQ(0x50, data[2]);
@@ -248,14 +254,7 @@ TEST_F(ClientTest, Namco_70_18_50_4c_14) {
 }
 
 TEST_F(ClientTest, Namco_70_18_50_4c_02) {
-  const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
-  SetCommand(kBroadcastAddress, kAddressSetCommand, sizeof(kAddressSetCommand));
-
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
-
-  EXPECT_TRUE(IsReady());
+  SetUpAddress();
 
   std::vector<uint8_t> reports;
   uint8_t status = GetStatus(reports);
@@ -266,7 +265,8 @@ TEST_F(ClientTest, Namco_70_18_50_4c_02) {
   const uint8_t kCommand[] = {kCmdNamco, 0x18, 0x50, 0x4c, 0x02, 0x0e, 0x10};
 
   SetCommand(kClientAddress, kCommand, sizeof(kCommand));
-  data = GetNextCommand(&len);
+  uint8_t len;
+  uint8_t* data = GetNextCommand(&len);
   EXPECT_EQ(kCmdNamco, data[0]);
   EXPECT_EQ(0x18, data[1]);
   EXPECT_EQ(0x50, data[2]);
@@ -286,14 +286,7 @@ TEST_F(ClientTest, Namco_70_18_50_4c_02) {
 }
 
 TEST_F(ClientTest, Namco_70_18_50_4c_80) {
-  const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
-  SetCommand(kBroadcastAddress, kAddressSetCommand, sizeof(kAddressSetCommand));
-
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
-
-  EXPECT_TRUE(IsReady());
+  SetUpAddress();
 
   std::vector<uint8_t> reports;
   uint8_t status = GetStatus(reports);
@@ -304,7 +297,8 @@ TEST_F(ClientTest, Namco_70_18_50_4c_80) {
   const uint8_t kCommand[] = {kCmdNamco, 0x18, 0x50, 0x4c, 0x80, 0x08};
 
   SetCommand(kClientAddress, kCommand, sizeof(kCommand));
-  data = GetNextCommand(&len);
+  uint8_t len;
+  uint8_t* data = GetNextCommand(&len);
   EXPECT_EQ(kCmdNamco, data[0]);
   EXPECT_EQ(0x18, data[1]);
   EXPECT_EQ(0x50, data[2]);
@@ -322,4 +316,39 @@ TEST_F(ClientTest, Namco_70_18_50_4c_80) {
   EXPECT_EQ(0x01, reports[0]);
   EXPECT_EQ(0x01, reports[1]);
 }
+
+TEST_F(ClientTest, MultiCommandSplit) {
+  SetUpAddress();
+
+  const uint8_t kCommand[] = {0x32, 0x01, 0x20, 0x20, 0x02, 0x02,
+                              0x21, 0x02, 0x22, 0x04, 0x25, 0x01};
+
+  SetCommand(kClientAddress, kCommand, sizeof(kCommand));
+  uint8_t len;
+  uint8_t* data = GetNextCommand(&len);
+  EXPECT_EQ(3, len);
+  EXPECT_EQ(0x32, *data);
+  PushReport(kReportOk);
+  PushReport(0x01);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(3, len);
+  EXPECT_EQ(0x20, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(2, len);
+  EXPECT_EQ(0x21, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(2, len);
+  EXPECT_EQ(0x22, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(2, len);
+  EXPECT_EQ(0x25, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+}
+
 }  // namespace
