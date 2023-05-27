@@ -25,6 +25,9 @@ class ClientTest : public ::testing::Test {
   uint8_t* GetNextCommand(uint8_t* len) {
     return io_->getNextCommand(io_, len, 0);
   }
+  uint8_t* GetNextSpeculativeCommand(uint8_t* len) {
+    return io_->getNextSpeculativeCommand(io_, len, 0);
+  }
 
   bool IsReady() { return ready_; }
   void SetReady(bool ready) { ready_ = ready; }
@@ -57,6 +60,8 @@ class ClientTest : public ::testing::Test {
       }
     }
   }
+
+  bool IsCommandEmpty() { return incoming_data_.empty(); }
 
   uint8_t GetStatus(std::vector<uint8_t>& report) {
     EXPECT_GE(outgoing_data_.size(), 5u);
@@ -357,7 +362,7 @@ TEST_F(ClientTest, MultiCommand) {
   EXPECT_EQ(nullptr, data);
 }
 
-TEST_F(ClientTest, PartialCommand) {
+TEST_F(ClientTest, PartialCommandVerified) {
   SetUpAddress();
 
   const uint8_t kCommand1[] = {0xe0, 0x01, 0x0d, 0x32};
@@ -370,40 +375,91 @@ TEST_F(ClientTest, PartialCommand) {
   uint8_t len;
   uint8_t* data = GetNextCommand(&len);
   EXPECT_EQ(nullptr, data);
+  ASSERT_TRUE(IsCommandEmpty());
 
   SetRawCommand(kCommand2, sizeof(kCommand2));
-
   data = GetNextCommand(&len);
-  EXPECT_EQ(3, len);
+  EXPECT_EQ(nullptr, data);
+  ASSERT_TRUE(IsCommandEmpty());
+
+  SetRawCommand(kCommand3, sizeof(kCommand3));
+  data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+  ASSERT_TRUE(IsCommandEmpty());
+
+  SetRawCommand(kCommand4, sizeof(kCommand4));
+  data = GetNextCommand(&len);
+  ASSERT_TRUE(IsCommandEmpty());
+  ASSERT_EQ(3, len);
   EXPECT_EQ(0x32, *data);
 
   data = GetNextCommand(&len);
-  EXPECT_EQ(3, len);
+  ASSERT_EQ(3, len);
   EXPECT_EQ(0x20, *data);
 
   data = GetNextCommand(&len);
+  ASSERT_EQ(2, len);
+  EXPECT_EQ(0x21, *data);
+
+  data = GetNextCommand(&len);
+  ASSERT_EQ(2, len);
+  EXPECT_EQ(0x22, *data);
+
+  data = GetNextCommand(&len);
+  ASSERT_EQ(2, len);
+  EXPECT_EQ(0x25, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+}
+
+TEST_F(ClientTest, PartialCommandSpeculative) {
+  SetUpAddress();
+
+  const uint8_t kCommand1[] = {0xe0, 0x01, 0x0d, 0x32};
+  const uint8_t kCommand2[] = {0x01, 0x20, 0x20, 0x02, 0x02};
+  const uint8_t kCommand3[] = {0x21, 0x02, 0x22};
+  const uint8_t kCommand4[] = {0x04, 0x25, 0x01, 0xf4};
+
+  SetRawCommand(kCommand1, sizeof(kCommand1));
+
+  uint8_t len;
+  uint8_t* data = GetNextSpeculativeCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  SetRawCommand(kCommand2, sizeof(kCommand2));
+
+  data = GetNextSpeculativeCommand(&len);
+  EXPECT_EQ(3, len);
+  EXPECT_EQ(0x32, *data);
+
+  data = GetNextSpeculativeCommand(&len);
+  EXPECT_EQ(3, len);
+  EXPECT_EQ(0x20, *data);
+
+  data = GetNextSpeculativeCommand(&len);
   EXPECT_EQ(nullptr, data);
 
   SetRawCommand(kCommand3, sizeof(kCommand3));
 
-  data = GetNextCommand(&len);
+  data = GetNextSpeculativeCommand(&len);
   EXPECT_EQ(2, len);
   EXPECT_EQ(0x21, *data);
 
-  data = GetNextCommand(&len);
+  data = GetNextSpeculativeCommand(&len);
   EXPECT_EQ(nullptr, data);
 
   SetRawCommand(kCommand4, sizeof(kCommand4));
 
-  data = GetNextCommand(&len);
+  data = GetNextSpeculativeCommand(&len);
   EXPECT_EQ(2, len);
   EXPECT_EQ(0x22, *data);
 
-  data = GetNextCommand(&len);
+  data = GetNextSpeculativeCommand(&len);
   EXPECT_EQ(2, len);
   EXPECT_EQ(0x25, *data);
 
-  data = GetNextCommand(&len);
+  data = GetNextSpeculativeCommand(&len);
   EXPECT_EQ(nullptr, data);
 }
 

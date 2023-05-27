@@ -306,7 +306,7 @@ static bool isBusy(struct JVSIO_Lib* lib) {
 }
 
 static void receive(struct JVSIO_Work* work) {
-  while (!work->rx_available && work->data->available(work->data) > 0) {
+  while (work->data->available(work->data)) {
     uint8_t data = work->data->read(work->data);
     if (data == kSync) {
       work->rx_size = 0;
@@ -401,9 +401,10 @@ static void end(struct JVSIO_Lib* lib) {
   lib->getNextCommand = NULL;
 }
 
-static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
-                               uint8_t* len,
-                               uint8_t* node) {
+static uint8_t* getNextCommandInternal(struct JVSIO_Lib* lib,
+                                       uint8_t* len,
+                                       uint8_t* node,
+                                       bool speculative) {
   struct JVSIO_Work* work = lib->work;
   uint8_t i;
 
@@ -418,6 +419,9 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
         if (work->address[i] == work->rx_data[0])
           *node = i;
       }
+    }
+    if (!speculative && (work->rx_data[1] + 2) != work->rx_size) {
+      return NULL;
     }
     uint8_t command_size;
     getCommandSize(work, &work->rx_data[work->rx_read_ptr],
@@ -511,6 +515,18 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
     }
     work->rx_read_ptr += command_size;
   }
+}
+
+static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
+                               uint8_t* len,
+                               uint8_t* node) {
+  return getNextCommandInternal(lib, len, node, false);
+}
+
+static uint8_t* getNextSpeculativeCommand(struct JVSIO_Lib* lib,
+                                          uint8_t* len,
+                                          uint8_t* node) {
+  return getNextCommandInternal(lib, len, node, true);
 }
 
 #if !defined(__NO_JVS_HOST__)
@@ -862,6 +878,7 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   jvsio->begin = begin;
   jvsio->end = end;
   jvsio->getNextCommand = getNextCommand;
+  jvsio->getNextSpeculativeCommand = getNextSpeculativeCommand;
   jvsio->pushReport = pushReport;
   jvsio->sendUnknownStatus = sendUnknownStatus;
   jvsio->isBusy = isBusy;

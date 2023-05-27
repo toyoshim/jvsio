@@ -135,6 +135,9 @@ struct JVSIO_Lib {
   uint8_t* (*getNextCommand)(struct JVSIO_Lib* lib,
                              uint8_t* len,
                              uint8_t* node);
+  uint8_t* (*getNextSpeculativeCommand)(struct JVSIO_Lib* lib,
+                                        uint8_t* len,
+                                        uint8_t* node);
   void (*pushReport)(struct JVSIO_Lib* lib, uint8_t report);
   void (*sendUnknownStatus)(struct JVSIO_Lib* lib);
   bool (*isBusy)(struct JVSIO_Lib* lib);

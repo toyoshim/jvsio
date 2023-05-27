@@ -7,8 +7,11 @@ OBJS			= test.o JVSIO_c.o
 test: ${LIBGTEST} ${OBJS}
 	clang++ -o test ${OBJS} ${LFLAGS}
 
-clean:
+dist-clean:
 	rm -rf out *.o test
+
+clean:
+	rm -rf *.o test
 
 %.o: ../%.c ../*.h
 	clang -c ${CFLAGS} -o $@ $<
