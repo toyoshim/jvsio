@@ -1,5 +1,5 @@
-CXXFLAGS	= -std=c++17 -Igoogletest/googletest/include -I..
-CFLAGS		= -I.. -D__TEST__
+CXXFLAGS	= -std=c++17 -Igoogletest/googletest/include -I.. -g
+CFLAGS		= -I.. -D__TEST__ -g
 LFLAGS		= -Lout/lib -lgtest -lgtest_main -lpthread
 LIBGTEST	= out/lib/libgtest.a
 OBJS			= test.o JVSIO_c.o

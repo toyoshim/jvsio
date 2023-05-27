@@ -137,6 +137,7 @@ struct JVSIO_Lib {
                              uint8_t* node);
   void (*pushReport)(struct JVSIO_Lib* lib, uint8_t report);
   void (*sendUnknownStatus)(struct JVSIO_Lib* lib);
+  bool (*isBusy)(struct JVSIO_Lib* lib);
 
 #if !defined(__NO_JVS_HOST__)
   // For hosts.

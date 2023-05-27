@@ -29,6 +29,12 @@ class ClientTest : public ::testing::Test {
   bool IsReady() { return ready_; }
   void SetReady(bool ready) { ready_ = ready; }
 
+  void SetRawCommand(const uint8_t* command, uint8_t size) {
+    for (size_t i = 0; i < size; ++i) {
+      incoming_data_.push(command[i]);
+    }
+  }
+
   void SetCommand(uint8_t address, const uint8_t* command, uint8_t size) {
     std::vector<uint8_t> data;
     uint8_t sum = address + size + 1;
@@ -317,7 +323,7 @@ TEST_F(ClientTest, Namco_70_18_50_4c_80) {
   EXPECT_EQ(0x01, reports[1]);
 }
 
-TEST_F(ClientTest, MultiCommandSplit) {
+TEST_F(ClientTest, MultiCommand) {
   SetUpAddress();
 
   const uint8_t kCommand[] = {0x32, 0x01, 0x20, 0x20, 0x02, 0x02,
@@ -338,6 +344,56 @@ TEST_F(ClientTest, MultiCommandSplit) {
   data = GetNextCommand(&len);
   EXPECT_EQ(2, len);
   EXPECT_EQ(0x21, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(2, len);
+  EXPECT_EQ(0x22, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(2, len);
+  EXPECT_EQ(0x25, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+}
+
+TEST_F(ClientTest, PartialCommand) {
+  SetUpAddress();
+
+  const uint8_t kCommand1[] = {0xe0, 0x01, 0x0d, 0x32};
+  const uint8_t kCommand2[] = {0x01, 0x20, 0x20, 0x02, 0x02};
+  const uint8_t kCommand3[] = {0x21, 0x02, 0x22};
+  const uint8_t kCommand4[] = {0x04, 0x25, 0x01, 0xf4};
+
+  SetRawCommand(kCommand1, sizeof(kCommand1));
+
+  uint8_t len;
+  uint8_t* data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  SetRawCommand(kCommand2, sizeof(kCommand2));
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(3, len);
+  EXPECT_EQ(0x32, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(3, len);
+  EXPECT_EQ(0x20, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  SetRawCommand(kCommand3, sizeof(kCommand3));
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(2, len);
+  EXPECT_EQ(0x21, *data);
+
+  data = GetNextCommand(&len);
+  EXPECT_EQ(nullptr, data);
+
+  SetRawCommand(kCommand4, sizeof(kCommand4));
 
   data = GetNextCommand(&len);
   EXPECT_EQ(2, len);

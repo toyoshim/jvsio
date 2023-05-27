@@ -95,64 +95,85 @@ static void writeEscapedByte(struct JVSIO_DataClient* client, uint8_t data) {
   }
 }
 
-static uint8_t getCommandSize(struct JVSIO_Work* work,
-                              uint8_t* command,
-                              uint8_t len) {
+static bool getCommandSize(struct JVSIO_Work* work,
+                           uint8_t* command,
+                           uint8_t len,
+                           uint8_t* size) {
   switch (*command) {
     case kCmdReset:
     case kCmdAddressSet:
-      return 2;
+      *size = 2;
+      return true;
     case kCmdIoId:
     case kCmdCommandRev:
     case kCmdJvRev:
     case kCmdProtocolVer:
     case kCmdFunctionCheck:
-      return 1;
+      *size = 1;
+      return true;
     case kCmdMainId:
       break;  // handled later
     case kCmdSwInput:
-      return 3;
+      *size = 3;
+      return true;
     case kCmdCoinInput:
     case kCmdAnalogInput:
     case kCmdRotaryInput:
-      return 2;
+      *size = 2;
+      return true;
     case kCmdKeyCodeInput:
-      return 1;
+      *size = 1;
+      return true;
     case kCmdScreenPositionInput:
-      return 2;
+      *size = 2;
+      return true;
     case kCmdRetry:
-      return 1;
+      *size = 1;
+      return true;
     case kCmdCoinSub:
     case kCmdCoinAdd:
-      return 4;
+      *size = 4;
+      return true;
     case kCmdDriverOutput:
-      return command[1] + 2;
+      *size = command[1] + 2;
+      return true;
     case kCmdAnalogOutput:
-      return command[1] * 2 + 2;
+      *size = command[1] * 2 + 2;
+      return true;
     case kCmdCharacterOutput:
-      return command[1] + 2;
+      *size = command[1] + 2;
+      return true;
     case kCmdNamco:
       switch (command[4]) {
         case 0x02:
-          return 7;
+          *size = 7;
+          return true;
         case 0x14:
-          return 12;
+          *size = 12;
+          return true;
         case 0x80:
-          return 6;
+          *size = 6;
+          return true;
       }
-      return 0;  // not supported
+      return false;
     case kCmdCommSup:
-      return 1;
+      *size = 1;
+      return true;
     case kCmdCommChg:
-      return 2;
+      *size = 2;
+      return true;
     default:
       work->data->dump(work->data, "unknown command", command, 1);
-      return 0;  // not supported
+      return false;
   }
-  uint8_t size = 2;
-  for (uint8_t i = 1; i < len && command[i]; ++i)
-    size++;
-  return size;
+  *size = 2;
+  for (uint8_t i = 1; i < len && command[i]; ++i) {
+    *size = *size + 1;
+  }
+  if (command[*size - 1]) {
+    *size = 0;  // data is incomplete.
+  }
+  return true;
 }
 
 static bool matchAddress(struct JVSIO_Work* work) {
@@ -196,6 +217,7 @@ static void sendStatus(struct JVSIO_Work* work) {
 
   work->rx_available = false;
   work->rx_receiving = false;
+  work->tx_report_size = 0;
 
   // Direction should be changed within 100usec from sending/receiving a packet.
   work->data->setOutput(work->data);
@@ -279,14 +301,19 @@ static void sendUnknownStatus(struct JVSIO_Lib* lib) {
   return sendUnknownCommandStatus(lib->work);
 }
 
+static bool isBusy(struct JVSIO_Lib* lib) {
+  return lib->work->tx_report_size != 0;
+}
+
 static void receive(struct JVSIO_Work* work) {
   while (!work->rx_available && work->data->available(work->data) > 0) {
     uint8_t data = work->data->read(work->data);
     if (data == kSync) {
       work->rx_size = 0;
+      work->rx_read_ptr = 2;
+      work->tx_report_size = 0;
       work->rx_receiving = true;
       work->rx_escaping = false;
-      work->rx_error = false;
       work->downstream_ready = work->sense->isReady(work->sense);
       continue;
     }
@@ -302,35 +329,63 @@ static void receive(struct JVSIO_Work* work) {
     } else {
       work->rx_data[work->rx_size++] = data;
     }
-    if (work->rx_size >= 2 && ((work->rx_data[1] + 2) == work->rx_size)) {
-      uint8_t sum = 0;
-      for (size_t i = 0; i < (work->rx_size - 1u); ++i)
-        sum += work->rx_data[i];
-      if ((work->rx_data[0] == kBroadcastAddress &&
-           (work->rx_data[2] == kCmdReset ||
-            work->rx_data[2] == kCmdCommChg)) ||
-          matchAddress(work)) {
-        // Broadcasrt or for this device.
-        if (work->rx_data[work->rx_size - 1] != sum) {
-          // Handles check sum error cases.
-          if (work->address[0] == kHostAddress) {
-            // Host mode does not need to send an error response back.
-            // Set `rx_error` flag instead for later references.
-            work->rx_error = true;
-          } else {
-            sendSumErrorStatus(work);
-            work->rx_size = 0;
-          }
-        } else {
-          work->rx_read_ptr = 2;  // Skip address and length
-          work->rx_available = true;
-          work->tx_report_size = 0;
-        }
-      } else {
-        // For other devices.
-        work->rx_size = 0;
-      }
+  }
+  if (work->rx_size < 2) {
+    return;
+  }
+  if (work->rx_data[0] != kBroadcastAddress && !matchAddress(work)) {
+    // Ignore packets for other nodes.
+    work->rx_receiving = false;
+    return;
+  }
+  if (work->rx_size == work->rx_read_ptr) {
+    // No data.
+    return;
+  }
+  if ((work->rx_data[1] + 1) != work->rx_read_ptr) {
+    uint8_t command_size;
+    if (!getCommandSize(work, &work->rx_data[work->rx_read_ptr],
+                        work->rx_size - work->rx_read_ptr, &command_size)) {
+      // Contain an unknown comamnd. Reply with the error status and ignore the
+      // whole packet.
+      work->rx_receiving = false;
+      sendUnknownCommandStatus(work);
+      return;
     }
+    if (command_size == 0 ||
+        (work->rx_read_ptr + command_size) > work->rx_size) {
+      // No command is ready to process.
+      return;
+    }
+    // At least, one command is ready to process.
+    work->rx_available = true;
+    return;
+  }
+
+  // Wait for the last byte, checksum.
+  if ((work->rx_data[1] + 2) != work->rx_size) {
+    return;
+  }
+
+  // Let's calculate the checksum.
+  work->rx_available = false;
+  uint8_t sum = 0;
+  for (size_t i = 0; i < (work->rx_size - 1u); ++i) {
+    sum += work->rx_data[i];
+  }
+  if (work->rx_data[work->rx_size - 1] != sum) {
+    // Handles check sum error cases.
+    if (work->address[0] == kHostAddress) {
+      // Host mode does not need to send an error response back.
+    } else if (work->rx_data[2] == kCmdReset ||
+               work->rx_data[2] == kCmdCommChg) {
+    } else {
+      // Reply with the error and ignore commands in the packet.
+      sendSumErrorStatus(work);
+    }
+  } else {
+    // Flish status.
+    sendOkStatus(work);
   }
 }
 
@@ -364,28 +419,15 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
           *node = i;
       }
     }
-    uint8_t max_command_size = work->rx_data[1] - work->rx_read_ptr + 1;
-    if (!max_command_size) {
-      sendOkStatus(work);
-      continue;
-    }
-    uint8_t command_size = getCommandSize(
-        work, &work->rx_data[work->rx_read_ptr], max_command_size);
-    if (!command_size) {
-      sendUnknownCommandStatus(work);
-      continue;
-    }
-    if (command_size > max_command_size) {
-      pushReport(lib, kReportParamErrorNoResponse);
-      sendUnknownCommandStatus(work);
-      continue;
-    }
+    uint8_t command_size;
+    getCommandSize(work, &work->rx_data[work->rx_read_ptr],
+                   work->rx_size - work->rx_read_ptr, &command_size);
+    work->rx_available = false;
     switch (work->rx_data[work->rx_read_ptr]) {
       case kCmdReset:
         senseNotReady(work);
         for (i = 0; i < work->nodes; ++i)
           work->address[i] = kBroadcastAddress;
-        work->rx_available = false;
         work->rx_receiving = false;
         work->data->dump(work->data, "reset", NULL, 0);
         work->rx_read_ptr += command_size;
@@ -398,7 +440,6 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
                            &work->rx_data[work->rx_read_ptr + 1], 1);
           pushReport(lib, kReportOk);
         } else {
-          work->rx_available = false;
           work->rx_receiving = false;
           return NULL;
         }
@@ -416,17 +457,18 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
         if (work->data->setCommSupMode &&
             (work->data->setCommSupMode(work->data, k1M, true) ||
              work->data->setCommSupMode(work->data, k3M, true))) {
-          // Activate the JVS Dash high speed modes if underlying implementation
-          // provides functionalities to upgrade the protocol.
+          // Activate the JVS Dash high speed modes if underlying
+          // implementation provides functionalities to upgrade the protocol.
           pushReport(lib, 0x20);
         } else {
           pushReport(lib, 0x10);
         }
         break;
       case kCmdMainId:
-        // We may hold the Id to provide it for the client code, but let's just
-        // ignore it for now. It seems newer namco boards send this command,
-        // e.g. BNGI.;WinArc;Ver"2.2.4";JPN, and expects OK status to proceed.
+        // We may hold the Id to provide it for the client code, but let's
+        // just ignore it for now. It seems newer namco boards send this
+        // command, e.g. BNGI.;WinArc;Ver"2.2.4";JPN, and expects OK status to
+        // proceed.
         pushReport(lib, kReportOk);
         break;
       case kCmdRetry:
@@ -444,7 +486,6 @@ static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
                 work->data, work->rx_data[work->rx_read_ptr + 1], false)) {
           work->comm_mode = work->rx_data[work->rx_read_ptr + 1];
         }
-        work->rx_available = false;
         work->rx_receiving = false;
         return NULL;
       case kCmdIoId:
@@ -823,6 +864,7 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   jvsio->getNextCommand = getNextCommand;
   jvsio->pushReport = pushReport;
   jvsio->sendUnknownStatus = sendUnknownStatus;
+  jvsio->isBusy = isBusy;
 #if !defined(__NO_JVS_HOST__)
   jvsio->host = host;
   jvsio->sync = sync;
