@@ -12,8 +12,6 @@ extern "C" {
 
 #include "gtest/gtest.h"
 
-namespace {
-
 const uint8_t kSync = 0xe0;
 const uint8_t kMarker = 0xd0;
 const uint8_t kHostAddress = 0x00;
@@ -21,6 +19,36 @@ const uint8_t kClientAddress = 0x01;
 const uint8_t kBroadcastAddress = 0xff;
 
 class ClientTest : public ::testing::Test {
+ public:
+  static int IsDataAvailable() {
+    if (instance->incoming_data_.empty())
+      return 0;
+    return 1;
+  }
+  static uint8_t ReadData() {
+    auto c = instance->incoming_data_.front();
+    instance->incoming_data_.pop();
+    return c;
+  }
+  static void WriteData(uint8_t data) {
+    if (instance->outgoing_marked_) {
+      instance->outgoing_data_.push_back(data + 1);
+      instance->outgoing_marked_ = false;
+    } else {
+      if (data == kMarker)
+        instance->outgoing_marked_ = true;
+      else
+        instance->outgoing_data_.push_back(data);
+    }
+  }
+  static void Dump(const char* str, uint8_t* data, uint8_t len) {
+    fprintf(stderr, "%s: ", str);
+    for (uint8_t i = 0; i < len; ++i)
+      fprintf(stderr, "%02x", data[i]);
+    fprintf(stderr, "\n");
+  }
+  static void SetSense(bool ready) { instance->SetReady(ready); }
+
  protected:
   uint8_t* GetNextCommand(uint8_t* len) { return JVSIO_getNextCommand(len, 0); }
   uint8_t* GetNextSpeculativeCommand(uint8_t* len) {
@@ -95,78 +123,59 @@ class ClientTest : public ::testing::Test {
 
  private:
   void SetUp() override {
-    data_.available = IsDataAvailable;
-    data_.setInput = DoNothingForData;
-    data_.setOutput = DoNothingForData;
-    data_.startTransaction = DoNothingForData;
-    data_.endTransaction = DoNothingForData;
-    data_.read = ReadData;
-    data_.write = WriteData;
-    data_.dump = Dump;
-
-    sense_.set = SetSense;
-    sense_.isReady = IsSenseReady;
-    sense_.isConnected = IsSenseConnected;
-
-    led_.set = SetLed;
-
-    time_.delayMicroseconds = Delay;
-    time_.delay = Delay;
-
-    JVSIO_init(&data_, &sense_, &led_, &time_, 1);
-
-    test_ = this;
+    JVSIO_init(1);
+    instance = this;
   }
 
-  static int IsDataAvailable() {
-    if (test_->incoming_data_.empty())
-      return 0;
-    return 1;
-  }
-  static void DoNothingForData() {}
-  static uint8_t ReadData() {
-    auto c = test_->incoming_data_.front();
-    test_->incoming_data_.pop();
-    return c;
-  }
-  static void WriteData(uint8_t data) {
-    if (test_->outgoing_marked_) {
-      test_->outgoing_data_.push_back(data + 1);
-      test_->outgoing_marked_ = false;
-    } else {
-      if (data == kMarker)
-        test_->outgoing_marked_ = true;
-      else
-        test_->outgoing_data_.push_back(data);
-    }
-  }
   static void Delay(unsigned int time) {}
-  static void Dump(const char* str, uint8_t* data, uint8_t len) {
-    fprintf(stderr, "%s: ", str);
-    for (uint8_t i = 0; i < len; ++i)
-      fprintf(stderr, "%02x", data[i]);
-    fprintf(stderr, "\n");
-  }
-  static void SetSense(bool ready) { test_->SetReady(ready); }
-  static bool IsSenseReady() { return true; }
-  static bool IsSenseConnected() { return false; }
 
-  static void SetLed(bool ready) {}
-
-  JVSIO_DataClient data_;
-  JVSIO_SenseClient sense_;
-  JVSIO_LedClient led_;
-  JVSIO_TimeClient time_;
-
+ private:
   bool ready_ = false;
   std::queue<uint8_t> incoming_data_;
   std::vector<uint8_t> outgoing_data_;
   bool outgoing_marked_ = false;
 
-  static ClientTest* test_;
+  static ClientTest* instance;
 };
 
-ClientTest* ClientTest::test_ = nullptr;
+ClientTest* ClientTest::instance = nullptr;
+
+extern "C" {
+int JVSIO_DataClient_available() {
+  return ClientTest::IsDataAvailable();
+}
+void JVSIO_DataClient_setInput() {}
+void JVSIO_DataClient_setOutput() {}
+void JVSIO_DataClient_startTransaction() {}
+void JVSIO_DataClient_endTransaction() {}
+uint8_t JVSIO_DataClient_read() {
+  return ClientTest::ReadData();
+}
+void JVSIO_DataClient_write(uint8_t data) {
+  ClientTest::WriteData(data);
+}
+void JVSIO_DataClient_dump(const char* str, uint8_t* data, uint8_t len) {
+  ClientTest::Dump(str, data, len);
+}
+bool JVSIO_SenseClient_isReady() {
+  return true;
+}
+bool JVSIO_SenseClient_isConnected() {
+  return false;
+};
+
+bool JVSIO_DataClient_setCommSupMode(enum JVSIO_CommSupMode mode, bool dryrun) {
+  return false;
+}
+
+void JVSIO_SenseClient_set(bool ready) {
+  ClientTest::SetSense(ready);
+}
+
+void JVSIO_LedClient_set(bool ready) {}
+
+void JVSIO_TimeClient_delayMicroseconds(unsigned int usec) {}
+}  // extern "C"
 
 TEST_F(ClientTest, DoNothing) {
   uint8_t len;
@@ -441,5 +450,3 @@ TEST_F(ClientTest, PartialCommandSpeculative) {
   data = GetNextSpeculativeCommand(&len);
   EXPECT_EQ(nullptr, data);
 }
-
-}  // namespace

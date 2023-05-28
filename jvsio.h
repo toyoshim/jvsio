@@ -57,11 +57,7 @@ enum JVSIO_Cmd {
   kReportBusy = 0x04,
 };
 
-void JVSIO_init(struct JVSIO_DataClient* data,
-                struct JVSIO_SenseClient* sense,
-                struct JVSIO_LedClient* led,
-                struct JVSIO_TimeClient* time,
-                uint8_t nodes);
+void JVSIO_init(uint8_t nodes);
 
 // For client nodes.
 uint8_t* JVSIO_getNextCommand(uint8_t* len, uint8_t* node);
@@ -72,7 +68,7 @@ bool JVSIO_isBusy();
 
 #if !defined(__NO_JVS_HOST__)
 // For hosts.
-bool JVSIO_host(struct JVSIO_HostClient* client);
+bool JVSIO_host();
 void JVSIO_sync();
 #endif
 

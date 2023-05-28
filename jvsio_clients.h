@@ -14,44 +14,44 @@ enum JVSIO_CommSupMode {
   k3M = 2,
 };
 
-struct JVSIO_DataClient {
-  int (*available)();
-  void (*setInput)();
-  void (*setOutput)();
-  void (*startTransaction)();
-  void (*endTransaction)();
-  uint8_t (*read)();
-  void (*write)(uint8_t data);
-  bool (*setCommSupMode)(enum JVSIO_CommSupMode mode, bool dryrun);
-  void (*dump)(const char* str, uint8_t* data, uint8_t len);
-};
+// Client APIs should be implemented by JVSIO users to handle physical device
+// operaqtions, such as driving bus signals or controlling led hints.
 
-struct JVSIO_SenseClient {
-  void (*set)(bool ready);
-  bool (*isReady)();
-  bool (*isConnected)();
-};
+// Required for both clients and hosts.
+int JVSIO_DataClient_available();
+void JVSIO_DataClient_setInput();
+void JVSIO_DataClient_setOutput();
+void JVSIO_DataClient_startTransaction();
+void JVSIO_DataClient_endTransaction();
+uint8_t JVSIO_DataClient_read();
+void JVSIO_DataClient_write(uint8_t data);
+void JVSIO_DataClient_dump(const char* str, uint8_t* data, uint8_t len);
 
-struct JVSIO_LedClient {
-  void (*set)(bool ready);
-};
+bool JVSIO_SenseClient_isReady();
+bool JVSIO_SenseClient_isConnected();
 
-struct JVSIO_TimeClient {
-  void (*delayMicroseconds)(unsigned int usec);
-  void (*delay)(unsigned int msec);
-  uint32_t (*getTick)();
-};
+// Required for clients.
+bool JVSIO_DataClient_setCommSupMode(enum JVSIO_CommSupMode mode, bool dryrun);
 
-struct JVSIO_HostClient {
-  void (*receiveIoId)(uint8_t address, uint8_t* data, uint8_t len);
-  void (*receiveCommandRev)(uint8_t address, uint8_t rev);
-  void (*receiveJvRev)(uint8_t address, uint8_t rev);
-  void (*receiveProtocolVer)(uint8_t address, uint8_t rev);
-  void (*receiveFunctionCheck)(uint8_t address, uint8_t* data, uint8_t len);
-  void (*synced)(uint8_t players,
-                 uint8_t coin_state,
-                 uint8_t* sw_state0,
-                 uint8_t* sw_state1);
-};
+void JVSIO_SenseClient_set(bool ready);
+
+void JVSIO_LedClient_set(bool ready);
+
+void JVSIO_TimeClient_delayMicroseconds(unsigned int usec);
+
+// Required for hosts.
+uint32_t JVSIO_TimeClient_getTick();
+
+void JVSIO_HostClient_receiveIoId(uint8_t address, uint8_t* data, uint8_t len);
+void JVSIO_HostClient_receiveCommandRev(uint8_t address, uint8_t rev);
+void JVSIO_HostClient_receiveJvRev(uint8_t address, uint8_t rev);
+void JVSIO_HostClient_receiveProtocolVer(uint8_t address, uint8_t rev);
+void JVSIO_HostClient_receiveFunctionCheck(uint8_t address,
+                                           uint8_t* data,
+                                           uint8_t len);
+void JVSIO_HostClient_synced(uint8_t players,
+                             uint8_t coin_state,
+                             uint8_t* sw_state0,
+                             uint8_t* sw_state1);
 
 #endif  // !defined(__JVSIO_CLIENTS_H__)
