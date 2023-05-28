@@ -187,9 +187,6 @@ void JVSIO_Client_dump(const char* str, uint8_t* data, uint8_t len) {
 bool JVSIO_Client_isSenseReady() {
   return true;
 }
-bool JVSIO_Client_isSenseConnected() {
-  return false;
-}
 bool JVSIO_Client_receiveCommand(uint8_t node,
                                  uint8_t* command,
                                  uint8_t len,

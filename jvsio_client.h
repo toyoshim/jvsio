@@ -25,7 +25,6 @@ void JVSIO_Client_send(uint8_t data);
 uint8_t JVSIO_Client_receive();
 void JVSIO_Client_dump(const char* str, uint8_t* data, uint8_t len);
 bool JVSIO_Client_isSenseReady();
-bool JVSIO_Client_isSenseConnected();
 
 // Required for client nodes.
 bool JVSIO_Client_receiveCommand(uint8_t node,
@@ -38,6 +37,7 @@ void JVSIO_Client_setLed(bool ready);
 void JVSIO_Client_delayMicroseconds(unsigned int usec);
 
 // Required for hosts.
+bool JVSIO_Client_isSenseConnected();
 uint32_t JVSIO_Client_getTick();
 void JVSIO_Client_ioIdReceived(uint8_t address, uint8_t* data, uint8_t len);
 void JVSIO_Client_commandRevReceived(uint8_t address, uint8_t rev);
