@@ -104,28 +104,20 @@ class ClientTest : public ::testing::Test {
     data_.write = WriteData;
     data_.dump = Dump;
 
-    sense_.begin = DoNothingForSense;
     sense_.set = SetSense;
     sense_.isReady = IsSenseReady;
     sense_.isConnected = IsSenseConnected;
-    sense_.work = this;
 
-    led_.begin = DoNothingForLed;
     led_.set = SetLed;
-    led_.work = this;
 
     time_.delayMicroseconds = Delay;
     time_.delay = Delay;
-    time_.work = this;
 
     JVSIO_init(&data_, &sense_, &led_, &time_, 1);
 
     test_ = this;
   }
 
-  static ClientTest* From(JVSIO_SenseClient* client) {
-    return static_cast<ClientTest*>(client->work);
-  }
   static int IsDataAvailable() {
     if (test_->incoming_data_.empty())
       return 0;
@@ -148,22 +140,18 @@ class ClientTest : public ::testing::Test {
         test_->outgoing_data_.push_back(data);
     }
   }
-  static void Delay(JVSIO_TimeClient* client, unsigned int time) {}
+  static void Delay(unsigned int time) {}
   static void Dump(const char* str, uint8_t* data, uint8_t len) {
     fprintf(stderr, "%s: ", str);
     for (uint8_t i = 0; i < len; ++i)
       fprintf(stderr, "%02x", data[i]);
     fprintf(stderr, "\n");
   }
-  static void DoNothingForSense(JVSIO_SenseClient* client) {}
-  static void SetSense(JVSIO_SenseClient* client, bool ready) {
-    ClientTest::From(client)->SetReady(ready);
-  }
-  static bool IsSenseReady(JVSIO_SenseClient* client) { return true; }
-  static bool IsSenseConnected(JVSIO_SenseClient* client) { return false; }
+  static void SetSense(bool ready) { test_->SetReady(ready); }
+  static bool IsSenseReady() { return true; }
+  static bool IsSenseConnected() { return false; }
 
-  static void DoNothingForLed(JVSIO_LedClient* client) {}
-  static void SetLed(JVSIO_LedClient* client, bool ready) {}
+  static void SetLed(bool ready) {}
 
   JVSIO_DataClient data_;
   JVSIO_SenseClient sense_;
