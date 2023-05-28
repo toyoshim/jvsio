@@ -15,21 +15,15 @@ enum JVSIO_CommSupMode {
 };
 
 struct JVSIO_DataClient {
-  int (*available)(struct JVSIO_DataClient* client);
-  void (*setInput)(struct JVSIO_DataClient* client);
-  void (*setOutput)(struct JVSIO_DataClient* client);
-  void (*startTransaction)(struct JVSIO_DataClient* client);
-  void (*endTransaction)(struct JVSIO_DataClient* client);
-  uint8_t (*read)(struct JVSIO_DataClient* client);
-  void (*write)(struct JVSIO_DataClient* client, uint8_t data);
-  bool (*setCommSupMode)(struct JVSIO_DataClient* client,
-                         enum JVSIO_CommSupMode mode,
-                         bool dryrun);
-  void (*dump)(struct JVSIO_DataClient* client,
-               const char* str,
-               uint8_t* data,
-               uint8_t len);
-  void* work;
+  int (*available)();
+  void (*setInput)();
+  void (*setOutput)();
+  void (*startTransaction)();
+  void (*endTransaction)();
+  uint8_t (*read)();
+  void (*write)(uint8_t data);
+  bool (*setCommSupMode)(enum JVSIO_CommSupMode mode, bool dryrun);
+  void (*dump)(const char* str, uint8_t* data, uint8_t len);
 };
 
 struct JVSIO_SenseClient {

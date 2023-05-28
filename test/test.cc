@@ -103,7 +103,6 @@ class ClientTest : public ::testing::Test {
     data_.read = ReadData;
     data_.write = WriteData;
     data_.dump = Dump;
-    data_.work = this;
 
     sense_.begin = DoNothingForSense;
     sense_.set = SetSense;
@@ -120,44 +119,37 @@ class ClientTest : public ::testing::Test {
     time_.work = this;
 
     JVSIO_init(&data_, &sense_, &led_, &time_, 1);
+
+    test_ = this;
   }
 
-  static ClientTest* From(JVSIO_DataClient* client) {
-    return static_cast<ClientTest*>(client->work);
-  }
   static ClientTest* From(JVSIO_SenseClient* client) {
     return static_cast<ClientTest*>(client->work);
   }
-  static int IsDataAvailable(JVSIO_DataClient* client) {
-    auto* self = ClientTest::From(client);
-    if (self->incoming_data_.empty())
+  static int IsDataAvailable() {
+    if (test_->incoming_data_.empty())
       return 0;
     return 1;
   }
-  static void DoNothingForData(JVSIO_DataClient* client) {}
-  static uint8_t ReadData(JVSIO_DataClient* client) {
-    auto* self = ClientTest::From(client);
-    auto c = self->incoming_data_.front();
-    self->incoming_data_.pop();
+  static void DoNothingForData() {}
+  static uint8_t ReadData() {
+    auto c = test_->incoming_data_.front();
+    test_->incoming_data_.pop();
     return c;
   }
-  static void WriteData(JVSIO_DataClient* client, uint8_t data) {
-    auto* self = ClientTest::From(client);
-    if (self->outgoing_marked_) {
-      self->outgoing_data_.push_back(data + 1);
-      self->outgoing_marked_ = false;
+  static void WriteData(uint8_t data) {
+    if (test_->outgoing_marked_) {
+      test_->outgoing_data_.push_back(data + 1);
+      test_->outgoing_marked_ = false;
     } else {
       if (data == kMarker)
-        self->outgoing_marked_ = true;
+        test_->outgoing_marked_ = true;
       else
-        self->outgoing_data_.push_back(data);
+        test_->outgoing_data_.push_back(data);
     }
   }
   static void Delay(JVSIO_TimeClient* client, unsigned int time) {}
-  static void Dump(JVSIO_DataClient* client,
-                   const char* str,
-                   uint8_t* data,
-                   uint8_t len) {
+  static void Dump(const char* str, uint8_t* data, uint8_t len) {
     fprintf(stderr, "%s: ", str);
     for (uint8_t i = 0; i < len; ++i)
       fprintf(stderr, "%02x", data[i]);
@@ -182,7 +174,11 @@ class ClientTest : public ::testing::Test {
   std::queue<uint8_t> incoming_data_;
   std::vector<uint8_t> outgoing_data_;
   bool outgoing_marked_ = false;
+
+  static ClientTest* test_;
 };
+
+ClientTest* ClientTest::test_ = nullptr;
 
 TEST_F(ClientTest, DoNothing) {
   uint8_t len;
