@@ -42,11 +42,13 @@ enum State {
   kStateUnexpected,
 };
 
+// Client interfaces that the library user provides.
+struct JVSIO_DataClient* data_client = NULL;
+struct JVSIO_SenseClient* sense_client = NULL;
+struct JVSIO_LedClient* led_client = NULL;
+struct JVSIO_TimeClient* time_client = NULL;
+
 struct JVSIO_Work {
-  struct JVSIO_DataClient* data;
-  struct JVSIO_SenseClient* sense;
-  struct JVSIO_LedClient* led;
-  struct JVSIO_TimeClient* time;
   uint8_t nodes;
   uint8_t rx_data[256];
   uint8_t rx_size;
@@ -159,7 +161,7 @@ static bool getCommandSize(uint8_t* command, uint8_t len, uint8_t* size) {
       *size = 2;
       return true;
     default:
-      gWork.data->dump(gWork.data, "unknown command", command, 1);
+      data_client->dump(data_client, "unknown command", command, 1);
       return false;
   }
   *size = 2;
@@ -182,28 +184,28 @@ static bool matchAddress() {
 }
 
 static void senseNotReady() {
-  gWork.sense->set(gWork.sense, false);
-  gWork.led->set(gWork.led, false);
+  sense_client->set(sense_client, false);
+  led_client->set(led_client, false);
 }
 
 static void senseReady() {
-  gWork.sense->set(gWork.sense, true);
-  gWork.led->set(gWork.led, true);
+  sense_client->set(sense_client, true);
+  led_client->set(led_client, true);
 }
 
 static void sendPacket(const uint8_t* data) {
-  gWork.data->startTransaction(gWork.data);
-  gWork.data->write(gWork.data, kSync);
+  data_client->startTransaction(data_client);
+  data_client->write(data_client, kSync);
   uint8_t sum = 0;
 
   for (uint8_t i = 0; i <= data[1]; ++i) {
     sum += data[i];
-    writeEscapedByte(gWork.data, data[i]);
+    writeEscapedByte(data_client, data[i]);
   }
-  writeEscapedByte(gWork.data, sum);
-  gWork.data->endTransaction(gWork.data);
+  writeEscapedByte(data_client, sum);
+  data_client->endTransaction(data_client);
 
-  gWork.data->setInput(gWork.data);
+  data_client->setInput(data_client);
 }
 
 static void sendStatus() {
@@ -216,12 +218,12 @@ static void sendStatus() {
   gWork.tx_report_size = 0;
 
   // Direction should be changed within 100usec from sending/receiving a packet.
-  gWork.data->setOutput(gWork.data);
+  data_client->setOutput(data_client);
 
   if (gWork.comm_mode == k115200) {
     // Spec requires 100usec interval at minimum between each packet.
     // But response should be sent within 1msec from the last byte received.
-    gWork.time->delayMicroseconds(gWork.time, 100);
+    time_client->delayMicroseconds(time_client, 100);
   }
 
   // Address is just assigned.
@@ -301,15 +303,15 @@ bool JVSIO_isBusy() {
 }
 
 static void receive() {
-  while (gWork.data->available(gWork.data)) {
-    uint8_t data = gWork.data->read(gWork.data);
+  while (data_client->available(data_client)) {
+    uint8_t data = data_client->read(data_client);
     if (data == kSync) {
       gWork.rx_size = 0;
       gWork.rx_read_ptr = 2;
       gWork.tx_report_size = 0;
       gWork.rx_receiving = true;
       gWork.rx_escaping = false;
-      gWork.downstream_ready = gWork.sense->isReady(gWork.sense);
+      gWork.downstream_ready = sense_client->isReady(sense_client);
       continue;
     }
     if (!gWork.rx_receiving)
@@ -414,15 +416,15 @@ static uint8_t* getNextCommandInternal(uint8_t* len,
         for (i = 0; i < gWork.nodes; ++i)
           gWork.address[i] = kBroadcastAddress;
         gWork.rx_receiving = false;
-        gWork.data->dump(gWork.data, "reset", NULL, 0);
+        data_client->dump(data_client, "reset", NULL, 0);
         gWork.rx_read_ptr += command_size;
         *len = command_size;
         return &gWork.rx_data[gWork.rx_read_ptr - command_size];
       case kCmdAddressSet:
         if (gWork.downstream_ready) {
           gWork.new_address = gWork.rx_data[gWork.rx_read_ptr + 1];
-          gWork.data->dump(gWork.data, "address",
-                           &gWork.rx_data[gWork.rx_read_ptr + 1], 1);
+          data_client->dump(data_client, "address",
+                            &gWork.rx_data[gWork.rx_read_ptr + 1], 1);
           JVSIO_pushReport(kReportOk);
         } else {
           gWork.rx_receiving = false;
@@ -439,9 +441,9 @@ static uint8_t* getNextCommandInternal(uint8_t* len,
         break;
       case kCmdProtocolVer:
         JVSIO_pushReport(kReportOk);
-        if (gWork.data->setCommSupMode &&
-            (gWork.data->setCommSupMode(gWork.data, k1M, true) ||
-             gWork.data->setCommSupMode(gWork.data, k3M, true))) {
+        if (data_client->setCommSupMode &&
+            (data_client->setCommSupMode(data_client, k1M, true) ||
+             data_client->setCommSupMode(data_client, k3M, true))) {
           // Activate the JVS Dash high speed modes if underlying
           // implementation provides functionalities to upgrade the protocol.
           JVSIO_pushReport(0x20);
@@ -462,12 +464,12 @@ static uint8_t* getNextCommandInternal(uint8_t* len,
       case kCmdCommSup:
         JVSIO_pushReport(kReportOk);
         JVSIO_pushReport(
-            1 | (gWork.data->setCommSupMode(gWork.data, k1M, true) ? 2 : 0) |
-            (gWork.data->setCommSupMode(gWork.data, k3M, true) ? 4 : 0));
+            1 | (data_client->setCommSupMode(data_client, k1M, true) ? 2 : 0) |
+            (data_client->setCommSupMode(data_client, k3M, true) ? 4 : 0));
         break;
       case kCmdCommChg:
-        if (gWork.data->setCommSupMode(
-                gWork.data, gWork.rx_data[gWork.rx_read_ptr + 1], false)) {
+        if (data_client->setCommSupMode(
+                data_client, gWork.rx_data[gWork.rx_read_ptr + 1], false)) {
           gWork.comm_mode = gWork.rx_data[gWork.rx_read_ptr + 1];
         }
         gWork.rx_receiving = false;
@@ -516,7 +518,7 @@ static bool timeInRange(uint32_t start, uint32_t now, uint32_t duration) {
 }
 
 static uint8_t* receiveStatus(uint8_t* len) {
-  if (!timeInRange(gWork.tick, gWork.time->getTick(gWork.time),
+  if (!timeInRange(gWork.tick, time_client->getTick(time_client),
                    kResponseTimeout)) {
     gWork.state = kStateTimeout;
     return NULL;
@@ -537,35 +539,35 @@ static uint8_t* receiveStatus(uint8_t* len) {
 static bool host(struct JVSIO_HostClient* client) {
   uint8_t* status = 0;
   uint8_t status_len = 0;
-  bool connected = gWork.sense->isConnected(gWork.sense);
+  bool connected = sense_client->isConnected(sense_client);
   if (!connected)
     gWork.state = kStateDisconnected;
 
   switch (gWork.state) {
     case kStateDisconnected:
       if (connected) {
-        gWork.tick = gWork.time->getTick(gWork.time);
+        gWork.tick = time_client->getTick(time_client);
         gWork.state = kStateConnected;
       }
       return false;
     case kStateConnected:
     case kStateResetWaitInterval:
       // Wait til 500[ms] to operate the RESET.
-      if (timeInRange(gWork.tick, gWork.time->getTick(gWork.time),
+      if (timeInRange(gWork.tick, time_client->getTick(time_client),
                       kResetInterval)) {
         return false;
       }
       break;
     case kStateReset:
     case kStateReset2:
-      gWork.data->dump(0, "RESET", 0, 0);
+      data_client->dump(0, "RESET", 0, 0);
       gWork.tx_data[0] = kBroadcastAddress;
       gWork.tx_data[1] = 3;  // Bytes
       gWork.tx_data[2] = kCmdReset;
       gWork.tx_data[3] = 0xd9;  // Magic number.
-      gWork.data->setOutput(gWork.data);
+      data_client->setOutput(data_client);
       sendPacket(gWork.tx_data);
-      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.tick = time_client->getTick(time_client);
       gWork.devices = 0;
       gWork.total_player = 0;
       gWork.coin_state = 0;
@@ -579,9 +581,9 @@ static bool host(struct JVSIO_HostClient* client) {
       gWork.tx_data[1] = 3;  // Bytes
       gWork.tx_data[2] = kCmdAddressSet;
       gWork.tx_data[3] = ++gWork.devices;
-      gWork.data->setOutput(gWork.data);
+      data_client->setOutput(data_client);
       sendPacket(gWork.tx_data);
-      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.tick = time_client->getTick(time_client);
       break;
     case kStateAddressWaitResponse:
       status = receiveStatus(&status_len);
@@ -591,11 +593,11 @@ static bool host(struct JVSIO_HostClient* client) {
         gWork.state = kStateInvalidResponse;
         return false;
       }
-      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.tick = time_client->getTick(time_client);
       break;
     case kStateReadyCheck:
-      if (!gWork.sense->isReady(gWork.sense)) {
-        if (!timeInRange(gWork.tick, gWork.time->getTick(gWork.time), 2)) {
+      if (!sense_client->isReady(sense_client)) {
+        if (!timeInRange(gWork.tick, time_client->getTick(time_client), 2)) {
           // More I/O devices exist. Assign for the next.
           gWork.state = kStateAddress;
         }
@@ -607,9 +609,9 @@ static bool host(struct JVSIO_HostClient* client) {
       gWork.tx_data[0] = gWork.target;
       gWork.tx_data[1] = 2;  // Bytes
       gWork.tx_data[2] = kCmdIoId;
-      gWork.data->setOutput(gWork.data);
+      data_client->setOutput(data_client);
       sendPacket(gWork.tx_data);
-      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.tick = time_client->getTick(time_client);
       break;
     case kStateWaitIoIdResponse:
       status = receiveStatus(&status_len);
@@ -626,9 +628,9 @@ static bool host(struct JVSIO_HostClient* client) {
       gWork.tx_data[0] = gWork.target;
       gWork.tx_data[1] = 2;  // Bytes
       gWork.tx_data[2] = kCmdCommandRev;
-      gWork.data->setOutput(gWork.data);
+      data_client->setOutput(data_client);
       sendPacket(gWork.tx_data);
-      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.tick = time_client->getTick(time_client);
       break;
     case kStateWaitCommandRevResponse:
       status = receiveStatus(&status_len);
@@ -645,9 +647,9 @@ static bool host(struct JVSIO_HostClient* client) {
       gWork.tx_data[0] = gWork.target;
       gWork.tx_data[1] = 2;  // Bytes
       gWork.tx_data[2] = kCmdJvRev;
-      gWork.data->setOutput(gWork.data);
+      data_client->setOutput(data_client);
       sendPacket(gWork.tx_data);
-      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.tick = time_client->getTick(time_client);
       break;
     case kStateWaitJvRevResponse:
       status = receiveStatus(&status_len);
@@ -664,9 +666,9 @@ static bool host(struct JVSIO_HostClient* client) {
       gWork.tx_data[0] = gWork.target;
       gWork.tx_data[1] = 2;  // Bytes
       gWork.tx_data[2] = kCmdProtocolVer;
-      gWork.data->setOutput(gWork.data);
+      data_client->setOutput(data_client);
       sendPacket(gWork.tx_data);
-      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.tick = time_client->getTick(time_client);
       break;
     case kStateWaitProtocolVerResponse:
       status = receiveStatus(&status_len);
@@ -683,9 +685,9 @@ static bool host(struct JVSIO_HostClient* client) {
       gWork.tx_data[0] = gWork.target;
       gWork.tx_data[1] = 2;  // Bytes
       gWork.tx_data[2] = kCmdFunctionCheck;
-      gWork.data->setOutput(gWork.data);
+      data_client->setOutput(data_client);
       sendPacket(gWork.tx_data);
-      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.tick = time_client->getTick(time_client);
       break;
     case kStateWaitFunctionCheckResponse:
       status = receiveStatus(&status_len);
@@ -735,9 +737,9 @@ static bool host(struct JVSIO_HostClient* client) {
       gWork.tx_data[4] = (gWork.buttons[target_index] + 7) >> 3;
       gWork.tx_data[5] = kCmdCoinInput;
       gWork.tx_data[6] = gWork.coin_slots[target_index];
-      gWork.data->setOutput(gWork.data);
+      data_client->setOutput(data_client);
       sendPacket(gWork.tx_data);
-      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.tick = time_client->getTick(time_client);
       break;
     }
     case kStateWaitSyncResponse: {
@@ -782,9 +784,9 @@ static bool host(struct JVSIO_HostClient* client) {
           gWork.tx_data[3] = 1 + player;
           gWork.tx_data[4] = 0;
           gWork.tx_data[5] = 1;
-          gWork.data->setOutput(gWork.data);
+          data_client->setOutput(data_client);
           sendPacket(gWork.tx_data);
-          gWork.tick = gWork.time->getTick(gWork.time);
+          gWork.tick = time_client->getTick(time_client);
           gWork.state = kStateWaitCoinSyncResponse;
           return false;
         }
@@ -845,14 +847,15 @@ void JVSIO_init(struct JVSIO_DataClient* data,
                 struct JVSIO_LedClient* led,
                 struct JVSIO_TimeClient* time,
                 uint8_t nodes) {
+  data_client = data;
+  sense_client = sense;
+  led_client = led;
+  time_client = time;
+
 #if !defined(__NO_JVS_HOST__)
   gWork.state = kStateDisconnected;
 #endif
 
-  gWork.data = data;
-  gWork.sense = sense;
-  gWork.led = led;
-  gWork.time = time;
   gWork.nodes = nodes ? nodes : 1;
   gWork.rx_size = 0;
   gWork.rx_read_ptr = 0;
@@ -867,7 +870,7 @@ void JVSIO_init(struct JVSIO_DataClient* data,
   for (uint8_t i = 0; i < gWork.nodes; ++i)
     gWork.address[i] = kBroadcastAddress;
 
-  gWork.data->setInput(gWork.data);
-  gWork.sense->begin(gWork.sense);
-  gWork.led->begin(gWork.led);
+  data_client->setInput(data_client);
+  sense_client->begin(sense_client);
+  led_client->begin(led_client);
 }
