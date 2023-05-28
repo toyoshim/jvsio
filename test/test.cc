@@ -141,40 +141,34 @@ class ClientTest : public ::testing::Test {
 ClientTest* ClientTest::instance = nullptr;
 
 extern "C" {
-int JVSIO_DataClient_available() {
+int JVSIO_Client_isDataAvailable() {
   return ClientTest::IsDataAvailable();
 }
-void JVSIO_DataClient_setInput() {}
-void JVSIO_DataClient_setOutput() {}
-void JVSIO_DataClient_startTransaction() {}
-void JVSIO_DataClient_endTransaction() {}
-uint8_t JVSIO_DataClient_read() {
-  return ClientTest::ReadData();
-}
-void JVSIO_DataClient_write(uint8_t data) {
+void JVSIO_Client_willSend() {}
+void JVSIO_Client_willReceive() {}
+void JVSIO_Client_send(uint8_t data) {
   ClientTest::WriteData(data);
 }
-void JVSIO_DataClient_dump(const char* str, uint8_t* data, uint8_t len) {
+uint8_t JVSIO_Client_receive() {
+  return ClientTest::ReadData();
+}
+void JVSIO_Client_dump(const char* str, uint8_t* data, uint8_t len) {
   ClientTest::Dump(str, data, len);
 }
-bool JVSIO_SenseClient_isReady() {
+bool JVSIO_Client_isSenseReady() {
   return true;
 }
-bool JVSIO_SenseClient_isConnected() {
+bool JVSIO_Client_isSenseConnected() {
   return false;
 };
-
-bool JVSIO_DataClient_setCommSupMode(enum JVSIO_CommSupMode mode, bool dryrun) {
+bool JVSIO_Client_setCommSupMode(enum JVSIO_CommSupMode mode, bool dryrun) {
   return false;
 }
-
-void JVSIO_SenseClient_set(bool ready) {
+void JVSIO_Client_setSense(bool ready) {
   ClientTest::SetSense(ready);
 }
-
-void JVSIO_LedClient_set(bool ready) {}
-
-void JVSIO_TimeClient_delayMicroseconds(unsigned int usec) {}
+void JVSIO_Client_setLed(bool ready) {}
+void JVSIO_Client_delayMicroseconds(unsigned int usec) {}
 }  // extern "C"
 
 TEST_F(ClientTest, DoNothing) {

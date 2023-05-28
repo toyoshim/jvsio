@@ -18,38 +18,33 @@ enum JVSIO_CommSupMode {
 // operaqtions, such as driving bus signals or controlling led hints.
 
 // Required for both clients and hosts.
-int JVSIO_DataClient_available();
-void JVSIO_DataClient_setInput();
-void JVSIO_DataClient_setOutput();
-uint8_t JVSIO_DataClient_read();
-void JVSIO_DataClient_write(uint8_t data);
-void JVSIO_DataClient_dump(const char* str, uint8_t* data, uint8_t len);
-
-bool JVSIO_SenseClient_isReady();
-bool JVSIO_SenseClient_isConnected();
+int JVSIO_Client_isDataAvailable();
+void JVSIO_Client_willSend();
+void JVSIO_Client_willReceive();
+void JVSIO_Client_send(uint8_t data);
+uint8_t JVSIO_Client_receive();
+void JVSIO_Client_dump(const char* str, uint8_t* data, uint8_t len);
+bool JVSIO_Client_isSenseReady();
+bool JVSIO_Client_isSenseConnected();
 
 // Required for clients.
-bool JVSIO_DataClient_setCommSupMode(enum JVSIO_CommSupMode mode, bool dryrun);
-
-void JVSIO_SenseClient_set(bool ready);
-
-void JVSIO_LedClient_set(bool ready);
-
-void JVSIO_TimeClient_delayMicroseconds(unsigned int usec);
+bool JVSIO_Client_setCommSupMode(enum JVSIO_CommSupMode mode, bool dryrun);
+void JVSIO_Client_setSense(bool ready);
+void JVSIO_Client_setLed(bool ready);
+void JVSIO_Client_delayMicroseconds(unsigned int usec);
 
 // Required for hosts.
-uint32_t JVSIO_TimeClient_getTick();
-
-void JVSIO_HostClient_receiveIoId(uint8_t address, uint8_t* data, uint8_t len);
-void JVSIO_HostClient_receiveCommandRev(uint8_t address, uint8_t rev);
-void JVSIO_HostClient_receiveJvRev(uint8_t address, uint8_t rev);
-void JVSIO_HostClient_receiveProtocolVer(uint8_t address, uint8_t rev);
-void JVSIO_HostClient_receiveFunctionCheck(uint8_t address,
-                                           uint8_t* data,
-                                           uint8_t len);
-void JVSIO_HostClient_synced(uint8_t players,
-                             uint8_t coin_state,
-                             uint8_t* sw_state0,
-                             uint8_t* sw_state1);
+uint32_t JVSIO_Client_getTick();
+void JVSIO_Client_ioIdReceived(uint8_t address, uint8_t* data, uint8_t len);
+void JVSIO_Client_commandRevReceived(uint8_t address, uint8_t rev);
+void JVSIO_Client_jvRevReceived(uint8_t address, uint8_t rev);
+void JVSIO_Client_protocolVerReceived(uint8_t address, uint8_t rev);
+void JVSIO_Client_functionCheckReceived(uint8_t address,
+                                        uint8_t* data,
+                                        uint8_t len);
+void JVSIO_Client_synced(uint8_t players,
+                         uint8_t coin_state,
+                         uint8_t* sw_state0,
+                         uint8_t* sw_state1);
 
 #endif  // !defined(__JVSIO_CLIENTS_H__)
