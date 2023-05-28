@@ -1,4 +1,4 @@
-// Copyright 2021 Takashi Toyoshima <toyoshim@gmail.com>. All rights reserved.
+// Copyright 2021 Takashi Toyoshima <toyoshim@gmail.com>.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -286,8 +286,8 @@ static void sendSumErrorStatus(struct JVSIO_Work* work) {
   sendStatus(work);
 }
 
-static void pushReport(struct JVSIO_Lib* lib, uint8_t report) {
-  struct JVSIO_Work* work = lib->work;
+static void pushReport(uint8_t report) {
+  struct JVSIO_Work* work = &gWork;
   if (work->tx_report_size == 253) {
     sendOverflowStatus(work);
     work->tx_report_size++;
@@ -297,12 +297,12 @@ static void pushReport(struct JVSIO_Lib* lib, uint8_t report) {
   }
 }
 
-static void sendUnknownStatus(struct JVSIO_Lib* lib) {
-  return sendUnknownCommandStatus(lib->work);
+static void sendUnknownStatus() {
+  return sendUnknownCommandStatus(&gWork);
 }
 
-static bool isBusy(struct JVSIO_Lib* lib) {
-  return lib->work->tx_report_size != 0;
+static bool isBusy() {
+  return gWork.tx_report_size != 0;
 }
 
 static void receive(struct JVSIO_Work* work) {
@@ -389,13 +389,10 @@ static void receive(struct JVSIO_Work* work) {
   }
 }
 
-static void begin(struct JVSIO_Lib* lib) {}
-
-static uint8_t* getNextCommandInternal(struct JVSIO_Lib* lib,
-                                       uint8_t* len,
+static uint8_t* getNextCommandInternal(uint8_t* len,
                                        uint8_t* node,
                                        bool speculative) {
-  struct JVSIO_Work* work = lib->work;
+  struct JVSIO_Work* work = &gWork;
   uint8_t i;
 
   for (;;) {
@@ -432,30 +429,30 @@ static uint8_t* getNextCommandInternal(struct JVSIO_Lib* lib,
           work->new_address = work->rx_data[work->rx_read_ptr + 1];
           work->data->dump(work->data, "address",
                            &work->rx_data[work->rx_read_ptr + 1], 1);
-          pushReport(lib, kReportOk);
+          pushReport(kReportOk);
         } else {
           work->rx_receiving = false;
           return NULL;
         }
         break;
       case kCmdCommandRev:
-        pushReport(lib, kReportOk);
-        pushReport(lib, 0x13);
+        pushReport(kReportOk);
+        pushReport(0x13);
         break;
       case kCmdJvRev:
-        pushReport(lib, kReportOk);
-        pushReport(lib, 0x30);
+        pushReport(kReportOk);
+        pushReport(0x30);
         break;
       case kCmdProtocolVer:
-        pushReport(lib, kReportOk);
+        pushReport(kReportOk);
         if (work->data->setCommSupMode &&
             (work->data->setCommSupMode(work->data, k1M, true) ||
              work->data->setCommSupMode(work->data, k3M, true))) {
           // Activate the JVS Dash high speed modes if underlying
           // implementation provides functionalities to upgrade the protocol.
-          pushReport(lib, 0x20);
+          pushReport(0x20);
         } else {
-          pushReport(lib, 0x10);
+          pushReport(0x10);
         }
         break;
       case kCmdMainId:
@@ -463,17 +460,16 @@ static uint8_t* getNextCommandInternal(struct JVSIO_Lib* lib,
         // just ignore it for now. It seems newer namco boards send this
         // command, e.g. BNGI.;WinArc;Ver"2.2.4";JPN, and expects OK status to
         // proceed.
-        pushReport(lib, kReportOk);
+        pushReport(kReportOk);
         break;
       case kCmdRetry:
         sendStatus(work);
         break;
       case kCmdCommSup:
-        pushReport(lib, kReportOk);
-        pushReport(
-            lib,
-            1 | (work->data->setCommSupMode(work->data, k1M, true) ? 2 : 0) |
-                (work->data->setCommSupMode(work->data, k3M, true) ? 4 : 0));
+        pushReport(kReportOk);
+        pushReport(1 |
+                   (work->data->setCommSupMode(work->data, k1M, true) ? 2 : 0) |
+                   (work->data->setCommSupMode(work->data, k3M, true) ? 4 : 0));
         break;
       case kCmdCommChg:
         if (work->data->setCommSupMode(
@@ -507,16 +503,12 @@ static uint8_t* getNextCommandInternal(struct JVSIO_Lib* lib,
   }
 }
 
-static uint8_t* getNextCommand(struct JVSIO_Lib* lib,
-                               uint8_t* len,
-                               uint8_t* node) {
-  return getNextCommandInternal(lib, len, node, false);
+static uint8_t* getNextCommand(uint8_t* len, uint8_t* node) {
+  return getNextCommandInternal(len, node, false);
 }
 
-static uint8_t* getNextSpeculativeCommand(struct JVSIO_Lib* lib,
-                                          uint8_t* len,
-                                          uint8_t* node) {
-  return getNextCommandInternal(lib, len, node, true);
+static uint8_t* getNextSpeculativeCommand(uint8_t* len, uint8_t* node) {
+  return getNextCommandInternal(len, node, true);
 }
 
 #if !defined(__NO_JVS_HOST__)
@@ -548,8 +540,8 @@ static uint8_t* receiveStatus(struct JVSIO_Work* work, uint8_t* len) {
   return &work->rx_data[2];
 }
 
-static bool host(struct JVSIO_Lib* lib, struct JVSIO_HostClient* client) {
-  struct JVSIO_Work* work = lib->work;
+static bool host(struct JVSIO_HostClient* client) {
+  struct JVSIO_Work* work = &gWork;
   uint8_t* status = 0;
   uint8_t status_len = 0;
   bool connected = work->sense->isConnected(work->sense);
@@ -847,8 +839,8 @@ static bool host(struct JVSIO_Lib* lib, struct JVSIO_HostClient* client) {
   return false;
 }
 
-static void sync(struct JVSIO_Lib* lib) {
-  struct JVSIO_Work* work = lib->work;
+static void sync() {
+  struct JVSIO_Work* work = &gWork;
   if (work->state != kStateReady)
     return;
   work->state = kStateRequestSync;
@@ -861,9 +853,8 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
                              struct JVSIO_LedClient* led,
                              struct JVSIO_TimeClient* time,
                              uint8_t nodes) {
-  gLib.work = &gWork;
   struct JVSIO_Lib* jvsio = &gLib;
-  struct JVSIO_Work* work = jvsio->work;
+  struct JVSIO_Work* work = &gWork;
 
   jvsio->getNextCommand = getNextCommand;
   jvsio->getNextSpeculativeCommand = getNextSpeculativeCommand;
@@ -900,8 +891,4 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   work->led->begin(work->led);
 
   return jvsio;
-}
-
-void JVSIO_close(struct JVSIO_Lib* lib) {
-  (void)lib;
 }

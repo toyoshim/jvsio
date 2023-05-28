@@ -1,4 +1,4 @@
-// Copyright 2022 Takashi Toyoshima <toyoshim@gmail.com>. All rights reserved.
+// Copyright 2022 Takashi Toyoshima <toyoshim@gmail.com>.
 // Use of this source code is governed by a BSD-style license that can be found
 // in the LICENSE file.
 
@@ -22,11 +22,9 @@ const uint8_t kBroadcastAddress = 0xff;
 
 class ClientTest : public ::testing::Test {
  protected:
-  uint8_t* GetNextCommand(uint8_t* len) {
-    return io_->getNextCommand(io_, len, 0);
-  }
+  uint8_t* GetNextCommand(uint8_t* len) { return io_->getNextCommand(len, 0); }
   uint8_t* GetNextSpeculativeCommand(uint8_t* len) {
-    return io_->getNextSpeculativeCommand(io_, len, 0);
+    return io_->getNextSpeculativeCommand(len, 0);
   }
 
   bool IsReady() { return ready_; }
@@ -92,8 +90,8 @@ class ClientTest : public ::testing::Test {
     EXPECT_TRUE(IsReady());
   }
 
-  void SendUnknownStatus() { io_->sendUnknownStatus(io_); }
-  void PushReport(uint8_t report) { io_->pushReport(io_, report); }
+  void SendUnknownStatus() { io_->sendUnknownStatus(); }
+  void PushReport(uint8_t report) { io_->pushReport(report); }
 
  private:
   void SetUp() override {
