@@ -3,7 +3,7 @@
 // in the LICENSE file.
 
 extern "C" {
-#include "JVSIO_c.h"
+#include "jvsio.h"
 }
 
 #include <functional>
