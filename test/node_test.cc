@@ -3,6 +3,7 @@
 // in the LICENSE file.
 
 extern "C" {
+#include "jvsio_client.h"
 #include "jvsio_common.h"
 #include "jvsio_node.h"
 }
@@ -47,9 +48,11 @@ class ClientTest : public ::testing::Test {
   static void SetSense(bool ready) { instance->SetReady(ready); }
 
  protected:
-  uint8_t* GetNextCommand(uint8_t* len) { return JVSIO_getNextCommand(len, 0); }
+  uint8_t* GetNextCommand(uint8_t* len) {
+    return JVSIO_Node_getNextCommand(len, 0);
+  }
   uint8_t* GetNextSpeculativeCommand(uint8_t* len) {
-    return JVSIO_getNextSpeculativeCommand(len, 0);
+    return JVSIO_Node_getNextSpeculativeCommand(len, 0);
   }
 
   bool IsReady() { return ready_; }
@@ -115,12 +118,12 @@ class ClientTest : public ::testing::Test {
     EXPECT_TRUE(IsReady());
   }
 
-  void SendUnknownStatus() { JVSIO_sendUnknownStatus(); }
-  void PushReport(uint8_t report) { JVSIO_pushReport(report); }
+  void SendUnknownStatus() { JVSIO_Node_sendUnknownStatus(); }
+  void PushReport(uint8_t report) { JVSIO_Node_pushReport(report); }
 
  private:
   void SetUp() override {
-    JVSIO_init(1);
+    JVSIO_Node_init(1);
     instance = this;
   }
 
