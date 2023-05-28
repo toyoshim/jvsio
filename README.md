@@ -3,17 +3,9 @@
 ![C/C++ CI](https://github.com/toyoshim/chlib/actions/workflows/c-cpp.yml/badge.svg)
 
 JVSIO is a general library to handle JVS - JAMMA Video Standard - Bus v3, and
-JVS Dash protocols. It's written in C and provides APIs for C, C++, and Arduino.
+JVS Dash protocols. It's written in C and provides APIs for C.
 
-## Built-in Supported Boards / Devices
- - Arduino Nano/Uno
- - Arduino Mega 2560
- - MightyCore
- - SparkFun Pro Micro (thanks to [@hnakai0909](https://github.com/hnakai0909))
-
- You can use the library with other devices by writing your own client class.
- See clients/ directory for more details. I already succeeded to make it work
- on several ATMEGA chips, CH559, and several ARM Cortex M0(+) based chips.
+APIs for C++ and Arduino were deprecated. You can find it in the legacy branch.
 
 ## Applications that uses this library
 
