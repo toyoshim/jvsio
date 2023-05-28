@@ -189,7 +189,11 @@ void JVSIO_Node_run(bool speculative) {
         sendSumErrorStatus();
         return;
       }
-      // TODO: Check sensitive commands.
+      uint8_t cmd = rx_data[rx_read_ptr];
+      if (cmd == kCmdReset || cmd == kCmdAddressSet || cmd == kCmdCommChg) {
+        // These commands above should not be handled without verification.
+        return;
+      }
       uint8_t len;
       bool known =
           getCommandSize(&rx_data[rx_read_ptr], rx_size - rx_read_ptr, &len);
