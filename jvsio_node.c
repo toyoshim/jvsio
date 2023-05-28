@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "jvsio.h"
+#include "jvsio_node.h"
 
 #include <stdlib.h>
 
@@ -73,13 +73,6 @@ struct JVSIO_Work {
 };
 
 static struct JVSIO_Work gWork;
-
-enum {
-  kHostAddress = 0x00,
-  kBroadcastAddress = 0xFF,
-  kMarker = 0xD0,
-  kSync = 0xE0,
-};
 
 static void writeEscapedByte(uint8_t data) {
   if (data == kMarker || data == kSync) {
@@ -187,6 +180,7 @@ static void senseReady() {
   JVSIO_Client_setLed(true);
 }
 
+// TODO: remove data argument as it is always tx_data.
 static void sendPacket(const uint8_t* data) {
   JVSIO_Client_send(kSync);
   uint8_t sum = 0;

@@ -18,8 +18,9 @@ jobs:
     - name: Build tests
       run: |
         cd test
-        make
+        make node_test host_test
     - name: Run tests
       run: |
         cd test
-        ./test
+        ./node_test
+        ./host_test

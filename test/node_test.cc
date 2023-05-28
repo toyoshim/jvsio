@@ -3,7 +3,8 @@
 // in the LICENSE file.
 
 extern "C" {
-#include "jvsio.h"
+#include "jvsio_common.h"
+#include "jvsio_node.h"
 }
 
 #include <functional>
@@ -12,11 +13,7 @@ extern "C" {
 
 #include "gtest/gtest.h"
 
-const uint8_t kSync = 0xe0;
-const uint8_t kMarker = 0xd0;
-const uint8_t kHostAddress = 0x00;
 const uint8_t kClientAddress = 0x01;
-const uint8_t kBroadcastAddress = 0xff;
 
 class ClientTest : public ::testing::Test {
  public:

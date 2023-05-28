@@ -17,7 +17,7 @@ enum JVSIO_CommSupMode {
 // Client APIs should be implemented by JVSIO users to handle physical device
 // operaqtions, such as driving bus signals or controlling led hints.
 
-// Required for both clients and hosts.
+// Required for both client nodes and hosts.
 int JVSIO_Client_isDataAvailable();
 void JVSIO_Client_willSend();
 void JVSIO_Client_willReceive();
@@ -27,7 +27,7 @@ void JVSIO_Client_dump(const char* str, uint8_t* data, uint8_t len);
 bool JVSIO_Client_isSenseReady();
 bool JVSIO_Client_isSenseConnected();
 
-// Required for clients.
+// Required for client nodes.
 bool JVSIO_Client_setCommSupMode(enum JVSIO_CommSupMode mode, bool dryrun);
 void JVSIO_Client_setSense(bool ready);
 void JVSIO_Client_setLed(bool ready);
