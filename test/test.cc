@@ -123,7 +123,6 @@ class ClientTest : public ::testing::Test {
 
     io_ = JVSIO_open(&data_, &sense_, &led_, &time_, 1);
     ASSERT_TRUE(io_);
-    io_->begin(io_);
   }
 
   static ClientTest* From(JVSIO_DataClient* client) {

@@ -389,17 +389,7 @@ static void receive(struct JVSIO_Work* work) {
   }
 }
 
-static void begin(struct JVSIO_Lib* lib) {
-  lib->work->data->setInput(lib->work->data);
-  lib->work->sense->begin(lib->work->sense);
-  lib->work->led->begin(lib->work->led);
-}
-
-static void end(struct JVSIO_Lib* lib) {
-  lib->begin = NULL;
-  lib->end = NULL;
-  lib->getNextCommand = NULL;
-}
+static void begin(struct JVSIO_Lib* lib) {}
 
 static uint8_t* getNextCommandInternal(struct JVSIO_Lib* lib,
                                        uint8_t* len,
@@ -875,8 +865,6 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   struct JVSIO_Lib* jvsio = &gLib;
   struct JVSIO_Work* work = jvsio->work;
 
-  jvsio->begin = begin;
-  jvsio->end = end;
   jvsio->getNextCommand = getNextCommand;
   jvsio->getNextSpeculativeCommand = getNextSpeculativeCommand;
   jvsio->pushReport = pushReport;
@@ -906,6 +894,11 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   work->comm_mode = k115200;
   for (uint8_t i = 0; i < work->nodes; ++i)
     work->address[i] = kBroadcastAddress;
+
+  work->data->setInput(work->data);
+  work->sense->begin(work->sense);
+  work->led->begin(work->led);
+
   return jvsio;
 }
 

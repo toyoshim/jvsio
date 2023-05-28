@@ -1,4 +1,4 @@
-// Copyright 2021 Takashi Toyoshima <toyoshim@gmail.com>. All rights reserved.
+// Copyright 2021 Takashi Toyoshima <toyoshim@gmail.com>.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -60,9 +60,6 @@ enum JVSIO_Cmd {
 struct JVSIO_Work;
 
 struct JVSIO_Lib {
-  void (*begin)(struct JVSIO_Lib* lib);
-  void (*end)(struct JVSIO_Lib* lib);
-
   // For client nodes.
   uint8_t* (*getNextCommand)(struct JVSIO_Lib* lib,
                              uint8_t* len,
