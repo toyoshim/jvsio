@@ -108,6 +108,7 @@ class ClientTest : public ::testing::Test {
   }
 
   bool IsIncomingDataEmpty() { return incoming_data_.empty(); }
+  bool IsOutgoingDataEmpty() { return outgoing_data_.empty(); }
 
   uint8_t RetrieveStatus(std::vector<uint8_t>& report) {
     EXPECT_GE(outgoing_data_.size(), 5u);
@@ -270,6 +271,33 @@ TEST_F(ClientTest, SumError) {
   uint8_t status = RetrieveStatus(reports);
   EXPECT_EQ(0x03, status);
   EXPECT_EQ(0u, reports.size());
+}
+
+TEST_F(ClientTest, MultiPackets) {
+  SetUpAddress();
+
+  const uint8_t kCommand[] = {0x21, 0x02};
+
+  SetCommand(kClientAddress, kCommand, sizeof(kCommand));
+  PushReport({kReportOk, 0x01});
+  ASSERT_TRUE(IsOutgoingDataEmpty());
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_FALSE(IsOutgoingDataEmpty());
+
+  ASSERT_EQ(1u, GetReceivedCommands().size());
+  ASSERT_EQ(2u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(0x21, GetReceivedCommands()[0].command[0]);
+
+  std::vector<uint8_t> reports;
+  uint8_t status = RetrieveStatus(reports);
+  EXPECT_EQ(0x01, status);
+  EXPECT_EQ(2u, reports.size());
+  ASSERT_TRUE(IsOutgoingDataEmpty());
+
+  JVSIO_Node_run(false);
+  ASSERT_EQ(1u, GetReceivedCommands().size());
+  ASSERT_TRUE(IsOutgoingDataEmpty());
 }
 
 TEST_F(ClientTest, Namco_70_18_50_4c_14) {

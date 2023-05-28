@@ -220,6 +220,7 @@ void JVSIO_Node_run(bool speculative) {
     if (!rx_available) {
       return;
     }
+    rx_available = false;
     if (rx_error) {
       sendSumErrorStatus();
       return;
