@@ -22,9 +22,9 @@ const uint8_t kBroadcastAddress = 0xff;
 
 class ClientTest : public ::testing::Test {
  protected:
-  uint8_t* GetNextCommand(uint8_t* len) { return io_->getNextCommand(len, 0); }
+  uint8_t* GetNextCommand(uint8_t* len) { return JVSIO_getNextCommand(len, 0); }
   uint8_t* GetNextSpeculativeCommand(uint8_t* len) {
-    return io_->getNextSpeculativeCommand(len, 0);
+    return JVSIO_getNextSpeculativeCommand(len, 0);
   }
 
   bool IsReady() { return ready_; }
@@ -90,8 +90,8 @@ class ClientTest : public ::testing::Test {
     EXPECT_TRUE(IsReady());
   }
 
-  void SendUnknownStatus() { io_->sendUnknownStatus(); }
-  void PushReport(uint8_t report) { io_->pushReport(report); }
+  void SendUnknownStatus() { JVSIO_sendUnknownStatus(); }
+  void PushReport(uint8_t report) { JVSIO_pushReport(report); }
 
  private:
   void SetUp() override {
@@ -119,8 +119,7 @@ class ClientTest : public ::testing::Test {
     time_.delay = Delay;
     time_.work = this;
 
-    io_ = JVSIO_open(&data_, &sense_, &led_, &time_, 1);
-    ASSERT_TRUE(io_);
+    JVSIO_init(&data_, &sense_, &led_, &time_, 1);
   }
 
   static ClientTest* From(JVSIO_DataClient* client) {
@@ -178,7 +177,6 @@ class ClientTest : public ::testing::Test {
   JVSIO_SenseClient sense_;
   JVSIO_LedClient led_;
   JVSIO_TimeClient time_;
-  JVSIO_Lib* io_ = nullptr;
 
   bool ready_ = false;
   std::queue<uint8_t> incoming_data_;

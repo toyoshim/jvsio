@@ -57,25 +57,23 @@ enum JVSIO_Cmd {
   kReportBusy = 0x04,
 };
 
-struct JVSIO_Lib {
-  // For client nodes.
-  uint8_t* (*getNextCommand)(uint8_t* len, uint8_t* node);
-  uint8_t* (*getNextSpeculativeCommand)(uint8_t* len, uint8_t* node);
-  void (*pushReport)(uint8_t report);
-  void (*sendUnknownStatus)();
-  bool (*isBusy)();
+void JVSIO_init(struct JVSIO_DataClient* data,
+                struct JVSIO_SenseClient* sense,
+                struct JVSIO_LedClient* led,
+                struct JVSIO_TimeClient* time,
+                uint8_t nodes);
+
+// For client nodes.
+uint8_t* JVSIO_getNextCommand(uint8_t* len, uint8_t* node);
+uint8_t* JVSIO_getNextSpeculativeCommand(uint8_t* len, uint8_t* node);
+void JVSIO_pushReport(uint8_t report);
+void JVSIO_sendUnknownStatus();
+bool JVSIO_isBusy();
 
 #if !defined(__NO_JVS_HOST__)
-  // For hosts.
-  bool (*host)(struct JVSIO_HostClient* client);
-  void (*sync)();
+// For hosts.
+bool JVSIO_host(struct JVSIO_HostClient* client);
+void JVSIO_sync();
 #endif
-};
-
-struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
-                             struct JVSIO_SenseClient* sense,
-                             struct JVSIO_LedClient* led,
-                             struct JVSIO_TimeClient* time,
-                             uint8_t nodes);
 
 #endif  // !defined(__JVSIO_H__)

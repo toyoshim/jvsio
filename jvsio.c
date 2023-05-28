@@ -76,7 +76,6 @@ struct JVSIO_Work {
 #endif
 };
 
-static struct JVSIO_Lib gLib;
 static struct JVSIO_Work gWork;
 
 enum {
@@ -283,7 +282,7 @@ static void sendSumErrorStatus() {
   sendStatus();
 }
 
-static void pushReport(uint8_t report) {
+void JVSIO_pushReport(uint8_t report) {
   if (gWork.tx_report_size == 253) {
     sendOverflowStatus();
     gWork.tx_report_size++;
@@ -293,11 +292,11 @@ static void pushReport(uint8_t report) {
   }
 }
 
-static void sendUnknownStatus() {
+void JVSIO_sendUnknownStatus() {
   return sendUnknownCommandStatus();
 }
 
-static bool isBusy() {
+bool JVSIO_isBusy() {
   return gWork.tx_report_size != 0;
 }
 
@@ -424,30 +423,30 @@ static uint8_t* getNextCommandInternal(uint8_t* len,
           gWork.new_address = gWork.rx_data[gWork.rx_read_ptr + 1];
           gWork.data->dump(gWork.data, "address",
                            &gWork.rx_data[gWork.rx_read_ptr + 1], 1);
-          pushReport(kReportOk);
+          JVSIO_pushReport(kReportOk);
         } else {
           gWork.rx_receiving = false;
           return NULL;
         }
         break;
       case kCmdCommandRev:
-        pushReport(kReportOk);
-        pushReport(0x13);
+        JVSIO_pushReport(kReportOk);
+        JVSIO_pushReport(0x13);
         break;
       case kCmdJvRev:
-        pushReport(kReportOk);
-        pushReport(0x30);
+        JVSIO_pushReport(kReportOk);
+        JVSIO_pushReport(0x30);
         break;
       case kCmdProtocolVer:
-        pushReport(kReportOk);
+        JVSIO_pushReport(kReportOk);
         if (gWork.data->setCommSupMode &&
             (gWork.data->setCommSupMode(gWork.data, k1M, true) ||
              gWork.data->setCommSupMode(gWork.data, k3M, true))) {
           // Activate the JVS Dash high speed modes if underlying
           // implementation provides functionalities to upgrade the protocol.
-          pushReport(0x20);
+          JVSIO_pushReport(0x20);
         } else {
-          pushReport(0x10);
+          JVSIO_pushReport(0x10);
         }
         break;
       case kCmdMainId:
@@ -455,16 +454,16 @@ static uint8_t* getNextCommandInternal(uint8_t* len,
         // just ignore it for now. It seems newer namco boards send this
         // command, e.g. BNGI.;WinArc;Ver"2.2.4";JPN, and expects OK status to
         // proceed.
-        pushReport(kReportOk);
+        JVSIO_pushReport(kReportOk);
         break;
       case kCmdRetry:
         sendStatus();
         break;
       case kCmdCommSup:
-        pushReport(kReportOk);
-        pushReport(1 |
-                   (gWork.data->setCommSupMode(gWork.data, k1M, true) ? 2 : 0) |
-                   (gWork.data->setCommSupMode(gWork.data, k3M, true) ? 4 : 0));
+        JVSIO_pushReport(kReportOk);
+        JVSIO_pushReport(
+            1 | (gWork.data->setCommSupMode(gWork.data, k1M, true) ? 2 : 0) |
+            (gWork.data->setCommSupMode(gWork.data, k3M, true) ? 4 : 0));
         break;
       case kCmdCommChg:
         if (gWork.data->setCommSupMode(
@@ -498,11 +497,11 @@ static uint8_t* getNextCommandInternal(uint8_t* len,
   }
 }
 
-static uint8_t* getNextCommand(uint8_t* len, uint8_t* node) {
+uint8_t* JVSIO_getNextCommand(uint8_t* len, uint8_t* node) {
   return getNextCommandInternal(len, node, false);
 }
 
-static uint8_t* getNextSpeculativeCommand(uint8_t* len, uint8_t* node) {
+uint8_t* JVSIO_getNextSpeculativeCommand(uint8_t* len, uint8_t* node) {
   return getNextCommandInternal(len, node, true);
 }
 
@@ -841,22 +840,12 @@ static void sync() {
 }
 #endif
 
-struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
-                             struct JVSIO_SenseClient* sense,
-                             struct JVSIO_LedClient* led,
-                             struct JVSIO_TimeClient* time,
-                             uint8_t nodes) {
-  struct JVSIO_Lib* jvsio = &gLib;
-
-  jvsio->getNextCommand = getNextCommand;
-  jvsio->getNextSpeculativeCommand = getNextSpeculativeCommand;
-  jvsio->pushReport = pushReport;
-  jvsio->sendUnknownStatus = sendUnknownStatus;
-  jvsio->isBusy = isBusy;
+void JVSIO_init(struct JVSIO_DataClient* data,
+                struct JVSIO_SenseClient* sense,
+                struct JVSIO_LedClient* led,
+                struct JVSIO_TimeClient* time,
+                uint8_t nodes) {
 #if !defined(__NO_JVS_HOST__)
-  jvsio->host = host;
-  jvsio->sync = sync;
-
   gWork.state = kStateDisconnected;
 #endif
 
@@ -881,6 +870,4 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   gWork.data->setInput(gWork.data);
   gWork.sense->begin(gWork.sense);
   gWork.led->begin(gWork.led);
-
-  return jvsio;
 }
