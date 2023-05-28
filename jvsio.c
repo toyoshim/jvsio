@@ -95,10 +95,7 @@ static void writeEscapedByte(struct JVSIO_DataClient* client, uint8_t data) {
   }
 }
 
-static bool getCommandSize(struct JVSIO_Work* work,
-                           uint8_t* command,
-                           uint8_t len,
-                           uint8_t* size) {
+static bool getCommandSize(uint8_t* command, uint8_t len, uint8_t* size) {
   switch (*command) {
     case kCmdReset:
     case kCmdAddressSet:
@@ -163,7 +160,7 @@ static bool getCommandSize(struct JVSIO_Work* work,
       *size = 2;
       return true;
     default:
-      work->data->dump(work->data, "unknown command", command, 1);
+      gWork.data->dump(gWork.data, "unknown command", command, 1);
       return false;
   }
   *size = 2;
@@ -176,56 +173,56 @@ static bool getCommandSize(struct JVSIO_Work* work,
   return true;
 }
 
-static bool matchAddress(struct JVSIO_Work* work) {
-  uint8_t target = work->rx_data[0];
-  for (uint8_t i = 0; i < work->nodes; ++i) {
-    if (target == work->address[i])
+static bool matchAddress() {
+  uint8_t target = gWork.rx_data[0];
+  for (uint8_t i = 0; i < gWork.nodes; ++i) {
+    if (target == gWork.address[i])
       return true;
   }
   return false;
 }
 
-static void senseNotReady(struct JVSIO_Work* work) {
-  work->sense->set(work->sense, false);
-  work->led->set(work->led, false);
+static void senseNotReady() {
+  gWork.sense->set(gWork.sense, false);
+  gWork.led->set(gWork.led, false);
 }
 
-static void senseReady(struct JVSIO_Work* work) {
-  work->sense->set(work->sense, true);
-  work->led->set(work->led, true);
+static void senseReady() {
+  gWork.sense->set(gWork.sense, true);
+  gWork.led->set(gWork.led, true);
 }
 
-static void sendPacket(struct JVSIO_Work* work, const uint8_t* data) {
-  work->data->startTransaction(work->data);
-  work->data->write(work->data, kSync);
+static void sendPacket(const uint8_t* data) {
+  gWork.data->startTransaction(gWork.data);
+  gWork.data->write(gWork.data, kSync);
   uint8_t sum = 0;
 
   for (uint8_t i = 0; i <= data[1]; ++i) {
     sum += data[i];
-    writeEscapedByte(work->data, data[i]);
+    writeEscapedByte(gWork.data, data[i]);
   }
-  writeEscapedByte(work->data, sum);
-  work->data->endTransaction(work->data);
+  writeEscapedByte(gWork.data, sum);
+  gWork.data->endTransaction(gWork.data);
 
-  work->data->setInput(work->data);
+  gWork.data->setInput(gWork.data);
 }
 
-static void sendStatus(struct JVSIO_Work* work) {
+static void sendStatus() {
   // Should not reply if the rx_receiving is reset, e.g. for broadcast commands.
-  if (!work->rx_receiving)
+  if (!gWork.rx_receiving)
     return;
 
-  work->rx_available = false;
-  work->rx_receiving = false;
-  work->tx_report_size = 0;
+  gWork.rx_available = false;
+  gWork.rx_receiving = false;
+  gWork.tx_report_size = 0;
 
   // Direction should be changed within 100usec from sending/receiving a packet.
-  work->data->setOutput(work->data);
+  gWork.data->setOutput(gWork.data);
 
-  if (work->comm_mode == k115200) {
+  if (gWork.comm_mode == k115200) {
     // Spec requires 100usec interval at minimum between each packet.
     // But response should be sent within 1msec from the last byte received.
-    work->time->delayMicroseconds(work->time, 100);
+    gWork.time->delayMicroseconds(gWork.time, 100);
   }
 
   // Address is just assigned.
@@ -236,202 +233,200 @@ static void sendStatus(struct JVSIO_Work* work) {
   // should be changed lately as we can as possible within the spec requiment.
   // However, as described below, sending response packet may take over 1msec.
   // Thus, this is the last place to negate the signal in a simle way.
-  if (kBroadcastAddress != work->new_address) {
-    for (uint8_t i = 0; i < work->nodes; ++i) {
-      if (work->address[i] != kBroadcastAddress)
+  if (kBroadcastAddress != gWork.new_address) {
+    for (uint8_t i = 0; i < gWork.nodes; ++i) {
+      if (gWork.address[i] != kBroadcastAddress)
         continue;
-      work->address[i] = work->new_address;
-      if (i == (work->nodes - 1))
-        senseReady(work);
+      gWork.address[i] = gWork.new_address;
+      if (i == (gWork.nodes - 1))
+        senseReady();
       break;
     }
-    work->new_address = kBroadcastAddress;
+    gWork.new_address = kBroadcastAddress;
   }
 
   // We can send about 14 bytes per 1msec at maximum. So, it will take over 18
   // msec to send the largest packet. Actual packet will have interval time
   // between each byte. In total, it may take more time.
-  sendPacket(work, work->tx_data);
+  sendPacket(gWork.tx_data);
 }
 
-static void sendOverflowStatus(struct JVSIO_Work* work) {
-  work->tx_data[0] = kHostAddress;
-  work->tx_data[1] = 2;
-  work->tx_data[2] = 0x04;
-  sendStatus(work);
+static void sendOverflowStatus() {
+  gWork.tx_data[0] = kHostAddress;
+  gWork.tx_data[1] = 2;
+  gWork.tx_data[2] = 0x04;
+  sendStatus();
 }
 
-static void sendOkStatus(struct JVSIO_Work* work) {
-  if (work->tx_report_size > 253)
-    return sendOverflowStatus(work);
-  work->tx_data[0] = kHostAddress;
-  work->tx_data[1] = 2 + work->tx_report_size;
-  work->tx_data[2] = 0x01;
-  sendStatus(work);
+static void sendOkStatus() {
+  if (gWork.tx_report_size > 253)
+    return sendOverflowStatus();
+  gWork.tx_data[0] = kHostAddress;
+  gWork.tx_data[1] = 2 + gWork.tx_report_size;
+  gWork.tx_data[2] = 0x01;
+  sendStatus();
 }
 
-static void sendUnknownCommandStatus(struct JVSIO_Work* work) {
-  if (work->tx_report_size > 253)
-    return sendOverflowStatus(work);
-  work->tx_data[0] = kHostAddress;
-  work->tx_data[1] = 2 + work->tx_report_size;
-  work->tx_data[2] = 0x02;
-  sendStatus(work);
+static void sendUnknownCommandStatus() {
+  if (gWork.tx_report_size > 253)
+    return sendOverflowStatus();
+  gWork.tx_data[0] = kHostAddress;
+  gWork.tx_data[1] = 2 + gWork.tx_report_size;
+  gWork.tx_data[2] = 0x02;
+  sendStatus();
 }
 
-static void sendSumErrorStatus(struct JVSIO_Work* work) {
-  work->tx_data[0] = kHostAddress;
-  work->tx_data[1] = 2;
-  work->tx_data[2] = 0x03;
-  sendStatus(work);
+static void sendSumErrorStatus() {
+  gWork.tx_data[0] = kHostAddress;
+  gWork.tx_data[1] = 2;
+  gWork.tx_data[2] = 0x03;
+  sendStatus();
 }
 
 static void pushReport(uint8_t report) {
-  struct JVSIO_Work* work = &gWork;
-  if (work->tx_report_size == 253) {
-    sendOverflowStatus(work);
-    work->tx_report_size++;
-  } else if (work->tx_report_size < 253) {
-    work->tx_data[3 + work->tx_report_size] = report;
-    work->tx_report_size++;
+  if (gWork.tx_report_size == 253) {
+    sendOverflowStatus();
+    gWork.tx_report_size++;
+  } else if (gWork.tx_report_size < 253) {
+    gWork.tx_data[3 + gWork.tx_report_size] = report;
+    gWork.tx_report_size++;
   }
 }
 
 static void sendUnknownStatus() {
-  return sendUnknownCommandStatus(&gWork);
+  return sendUnknownCommandStatus();
 }
 
 static bool isBusy() {
   return gWork.tx_report_size != 0;
 }
 
-static void receive(struct JVSIO_Work* work) {
-  while (work->data->available(work->data)) {
-    uint8_t data = work->data->read(work->data);
+static void receive() {
+  while (gWork.data->available(gWork.data)) {
+    uint8_t data = gWork.data->read(gWork.data);
     if (data == kSync) {
-      work->rx_size = 0;
-      work->rx_read_ptr = 2;
-      work->tx_report_size = 0;
-      work->rx_receiving = true;
-      work->rx_escaping = false;
-      work->downstream_ready = work->sense->isReady(work->sense);
+      gWork.rx_size = 0;
+      gWork.rx_read_ptr = 2;
+      gWork.tx_report_size = 0;
+      gWork.rx_receiving = true;
+      gWork.rx_escaping = false;
+      gWork.downstream_ready = gWork.sense->isReady(gWork.sense);
       continue;
     }
-    if (!work->rx_receiving)
+    if (!gWork.rx_receiving)
       continue;
     if (data == kMarker) {
-      work->rx_escaping = true;
+      gWork.rx_escaping = true;
       continue;
     }
-    if (work->rx_escaping) {
-      work->rx_data[work->rx_size++] = data + 1;
-      work->rx_escaping = false;
+    if (gWork.rx_escaping) {
+      gWork.rx_data[gWork.rx_size++] = data + 1;
+      gWork.rx_escaping = false;
     } else {
-      work->rx_data[work->rx_size++] = data;
+      gWork.rx_data[gWork.rx_size++] = data;
     }
   }
-  if (work->rx_size < 2) {
+  if (gWork.rx_size < 2) {
     return;
   }
-  if (work->rx_data[0] != kBroadcastAddress && !matchAddress(work)) {
+  if (gWork.rx_data[0] != kBroadcastAddress && !matchAddress()) {
     // Ignore packets for other nodes.
-    work->rx_receiving = false;
+    gWork.rx_receiving = false;
     return;
   }
-  if (work->rx_size == work->rx_read_ptr) {
+  if (gWork.rx_size == gWork.rx_read_ptr) {
     // No data.
     return;
   }
-  if ((work->rx_data[1] + 1) != work->rx_read_ptr) {
+  if ((gWork.rx_data[1] + 1) != gWork.rx_read_ptr) {
     uint8_t command_size;
-    if (!getCommandSize(work, &work->rx_data[work->rx_read_ptr],
-                        work->rx_size - work->rx_read_ptr, &command_size)) {
+    if (!getCommandSize(&gWork.rx_data[gWork.rx_read_ptr],
+                        gWork.rx_size - gWork.rx_read_ptr, &command_size)) {
       // Contain an unknown comamnd. Reply with the error status and ignore the
       // whole packet.
-      work->rx_receiving = false;
-      sendUnknownCommandStatus(work);
+      gWork.rx_receiving = false;
+      sendUnknownCommandStatus();
       return;
     }
     if (command_size == 0 ||
-        (work->rx_read_ptr + command_size) > work->rx_size) {
+        (gWork.rx_read_ptr + command_size) > gWork.rx_size) {
       // No command is ready to process.
       return;
     }
     // At least, one command is ready to process.
-    work->rx_available = true;
+    gWork.rx_available = true;
     return;
   }
 
   // Wait for the last byte, checksum.
-  if ((work->rx_data[1] + 2) != work->rx_size) {
+  if ((gWork.rx_data[1] + 2) != gWork.rx_size) {
     return;
   }
 
   // Let's calculate the checksum.
-  work->rx_available = false;
+  gWork.rx_available = false;
   uint8_t sum = 0;
-  for (size_t i = 0; i < (work->rx_size - 1u); ++i) {
-    sum += work->rx_data[i];
+  for (size_t i = 0; i < (gWork.rx_size - 1u); ++i) {
+    sum += gWork.rx_data[i];
   }
-  if (work->rx_data[work->rx_size - 1] != sum) {
+  if (gWork.rx_data[gWork.rx_size - 1] != sum) {
     // Handles check sum error cases.
-    if (work->address[0] == kHostAddress) {
+    if (gWork.address[0] == kHostAddress) {
       // Host mode does not need to send an error response back.
-    } else if (work->rx_data[2] == kCmdReset ||
-               work->rx_data[2] == kCmdCommChg) {
+    } else if (gWork.rx_data[2] == kCmdReset ||
+               gWork.rx_data[2] == kCmdCommChg) {
     } else {
       // Reply with the error and ignore commands in the packet.
-      sendSumErrorStatus(work);
+      sendSumErrorStatus();
     }
   } else {
     // Flish status.
-    sendOkStatus(work);
+    sendOkStatus();
   }
 }
 
 static uint8_t* getNextCommandInternal(uint8_t* len,
                                        uint8_t* node,
                                        bool speculative) {
-  struct JVSIO_Work* work = &gWork;
   uint8_t i;
 
   for (;;) {
-    receive(work);
-    if (!work->rx_available)
+    receive();
+    if (!gWork.rx_available)
       return NULL;
 
     if (node != NULL) {
       *node = 255;
-      for (i = 0; i < work->nodes; ++i) {
-        if (work->address[i] == work->rx_data[0])
+      for (i = 0; i < gWork.nodes; ++i) {
+        if (gWork.address[i] == gWork.rx_data[0])
           *node = i;
       }
     }
-    if (!speculative && (work->rx_data[1] + 2) != work->rx_size) {
+    if (!speculative && (gWork.rx_data[1] + 2) != gWork.rx_size) {
       return NULL;
     }
     uint8_t command_size;
-    getCommandSize(work, &work->rx_data[work->rx_read_ptr],
-                   work->rx_size - work->rx_read_ptr, &command_size);
-    work->rx_available = false;
-    switch (work->rx_data[work->rx_read_ptr]) {
+    getCommandSize(&gWork.rx_data[gWork.rx_read_ptr],
+                   gWork.rx_size - gWork.rx_read_ptr, &command_size);
+    gWork.rx_available = false;
+    switch (gWork.rx_data[gWork.rx_read_ptr]) {
       case kCmdReset:
-        senseNotReady(work);
-        for (i = 0; i < work->nodes; ++i)
-          work->address[i] = kBroadcastAddress;
-        work->rx_receiving = false;
-        work->data->dump(work->data, "reset", NULL, 0);
-        work->rx_read_ptr += command_size;
+        senseNotReady();
+        for (i = 0; i < gWork.nodes; ++i)
+          gWork.address[i] = kBroadcastAddress;
+        gWork.rx_receiving = false;
+        gWork.data->dump(gWork.data, "reset", NULL, 0);
+        gWork.rx_read_ptr += command_size;
         *len = command_size;
-        return &work->rx_data[work->rx_read_ptr - command_size];
+        return &gWork.rx_data[gWork.rx_read_ptr - command_size];
       case kCmdAddressSet:
-        if (work->downstream_ready) {
-          work->new_address = work->rx_data[work->rx_read_ptr + 1];
-          work->data->dump(work->data, "address",
-                           &work->rx_data[work->rx_read_ptr + 1], 1);
+        if (gWork.downstream_ready) {
+          gWork.new_address = gWork.rx_data[gWork.rx_read_ptr + 1];
+          gWork.data->dump(gWork.data, "address",
+                           &gWork.rx_data[gWork.rx_read_ptr + 1], 1);
           pushReport(kReportOk);
         } else {
-          work->rx_receiving = false;
+          gWork.rx_receiving = false;
           return NULL;
         }
         break;
@@ -445,9 +440,9 @@ static uint8_t* getNextCommandInternal(uint8_t* len,
         break;
       case kCmdProtocolVer:
         pushReport(kReportOk);
-        if (work->data->setCommSupMode &&
-            (work->data->setCommSupMode(work->data, k1M, true) ||
-             work->data->setCommSupMode(work->data, k3M, true))) {
+        if (gWork.data->setCommSupMode &&
+            (gWork.data->setCommSupMode(gWork.data, k1M, true) ||
+             gWork.data->setCommSupMode(gWork.data, k3M, true))) {
           // Activate the JVS Dash high speed modes if underlying
           // implementation provides functionalities to upgrade the protocol.
           pushReport(0x20);
@@ -463,20 +458,20 @@ static uint8_t* getNextCommandInternal(uint8_t* len,
         pushReport(kReportOk);
         break;
       case kCmdRetry:
-        sendStatus(work);
+        sendStatus();
         break;
       case kCmdCommSup:
         pushReport(kReportOk);
         pushReport(1 |
-                   (work->data->setCommSupMode(work->data, k1M, true) ? 2 : 0) |
-                   (work->data->setCommSupMode(work->data, k3M, true) ? 4 : 0));
+                   (gWork.data->setCommSupMode(gWork.data, k1M, true) ? 2 : 0) |
+                   (gWork.data->setCommSupMode(gWork.data, k3M, true) ? 4 : 0));
         break;
       case kCmdCommChg:
-        if (work->data->setCommSupMode(
-                work->data, work->rx_data[work->rx_read_ptr + 1], false)) {
-          work->comm_mode = work->rx_data[work->rx_read_ptr + 1];
+        if (gWork.data->setCommSupMode(
+                gWork.data, gWork.rx_data[gWork.rx_read_ptr + 1], false)) {
+          gWork.comm_mode = gWork.rx_data[gWork.rx_read_ptr + 1];
         }
-        work->rx_receiving = false;
+        gWork.rx_receiving = false;
         return NULL;
       case kCmdIoId:
       case kCmdFunctionCheck:
@@ -493,13 +488,13 @@ static uint8_t* getNextCommandInternal(uint8_t* len,
       case kCmdCoinAdd:
       case kCmdNamco:
         *len = command_size;
-        work->rx_read_ptr += command_size;
-        return &work->rx_data[work->rx_read_ptr - command_size];
+        gWork.rx_read_ptr += command_size;
+        return &gWork.rx_data[gWork.rx_read_ptr - command_size];
       default:
-        sendUnknownCommandStatus(work);
+        sendUnknownCommandStatus();
         break;
     }
-    work->rx_read_ptr += command_size;
+    gWork.rx_read_ptr += command_size;
   }
 }
 
@@ -521,200 +516,199 @@ static bool timeInRange(uint32_t start, uint32_t now, uint32_t duration) {
   return start <= now && now <= end;
 }
 
-static uint8_t* receiveStatus(struct JVSIO_Work* work, uint8_t* len) {
-  if (!timeInRange(work->tick, work->time->getTick(work->time),
+static uint8_t* receiveStatus(uint8_t* len) {
+  if (!timeInRange(gWork.tick, gWork.time->getTick(gWork.time),
                    kResponseTimeout)) {
-    work->state = kStateTimeout;
+    gWork.state = kStateTimeout;
     return NULL;
   }
 
-  work->address[0] = kHostAddress;
-  receive(work);
-  if (work->rx_error || !work->rx_available)
+  gWork.address[0] = kHostAddress;
+  receive();
+  if (gWork.rx_error || !gWork.rx_available)
     return NULL;
 
-  *len = work->rx_data[1] - 1;
-  work->rx_size = 0;
-  work->rx_available = false;
-  work->rx_receiving = false;
-  return &work->rx_data[2];
+  *len = gWork.rx_data[1] - 1;
+  gWork.rx_size = 0;
+  gWork.rx_available = false;
+  gWork.rx_receiving = false;
+  return &gWork.rx_data[2];
 }
 
 static bool host(struct JVSIO_HostClient* client) {
-  struct JVSIO_Work* work = &gWork;
   uint8_t* status = 0;
   uint8_t status_len = 0;
-  bool connected = work->sense->isConnected(work->sense);
+  bool connected = gWork.sense->isConnected(gWork.sense);
   if (!connected)
-    work->state = kStateDisconnected;
+    gWork.state = kStateDisconnected;
 
-  switch (work->state) {
+  switch (gWork.state) {
     case kStateDisconnected:
       if (connected) {
-        work->tick = work->time->getTick(work->time);
-        work->state = kStateConnected;
+        gWork.tick = gWork.time->getTick(gWork.time);
+        gWork.state = kStateConnected;
       }
       return false;
     case kStateConnected:
     case kStateResetWaitInterval:
       // Wait til 500[ms] to operate the RESET.
-      if (timeInRange(work->tick, work->time->getTick(work->time),
+      if (timeInRange(gWork.tick, gWork.time->getTick(gWork.time),
                       kResetInterval)) {
         return false;
       }
       break;
     case kStateReset:
     case kStateReset2:
-      work->data->dump(0, "RESET", 0, 0);
-      work->tx_data[0] = kBroadcastAddress;
-      work->tx_data[1] = 3;  // Bytes
-      work->tx_data[2] = kCmdReset;
-      work->tx_data[3] = 0xd9;  // Magic number.
-      work->data->setOutput(work->data);
-      sendPacket(work, work->tx_data);
-      work->tick = work->time->getTick(work->time);
-      work->devices = 0;
-      work->total_player = 0;
-      work->coin_state = 0;
+      gWork.data->dump(0, "RESET", 0, 0);
+      gWork.tx_data[0] = kBroadcastAddress;
+      gWork.tx_data[1] = 3;  // Bytes
+      gWork.tx_data[2] = kCmdReset;
+      gWork.tx_data[3] = 0xd9;  // Magic number.
+      gWork.data->setOutput(gWork.data);
+      sendPacket(gWork.tx_data);
+      gWork.tick = gWork.time->getTick(gWork.time);
+      gWork.devices = 0;
+      gWork.total_player = 0;
+      gWork.coin_state = 0;
       break;
     case kStateAddress:
-      if (work->devices == 255) {
-        work->state = kStateUnexpected;
+      if (gWork.devices == 255) {
+        gWork.state = kStateUnexpected;
         return false;
       }
-      work->tx_data[0] = kBroadcastAddress;
-      work->tx_data[1] = 3;  // Bytes
-      work->tx_data[2] = kCmdAddressSet;
-      work->tx_data[3] = ++work->devices;
-      work->data->setOutput(work->data);
-      sendPacket(work, work->tx_data);
-      work->tick = work->time->getTick(work->time);
+      gWork.tx_data[0] = kBroadcastAddress;
+      gWork.tx_data[1] = 3;  // Bytes
+      gWork.tx_data[2] = kCmdAddressSet;
+      gWork.tx_data[3] = ++gWork.devices;
+      gWork.data->setOutput(gWork.data);
+      sendPacket(gWork.tx_data);
+      gWork.tick = gWork.time->getTick(gWork.time);
       break;
     case kStateAddressWaitResponse:
-      status = receiveStatus(work, &status_len);
+      status = receiveStatus(&status_len);
       if (!status)
         return false;
       if (status_len != 2 || status[0] != 1 || status[1] != 1) {
-        work->state = kStateInvalidResponse;
+        gWork.state = kStateInvalidResponse;
         return false;
       }
-      work->tick = work->time->getTick(work->time);
+      gWork.tick = gWork.time->getTick(gWork.time);
       break;
     case kStateReadyCheck:
-      if (!work->sense->isReady(work->sense)) {
-        if (!timeInRange(work->tick, work->time->getTick(work->time), 2)) {
+      if (!gWork.sense->isReady(gWork.sense)) {
+        if (!timeInRange(gWork.tick, gWork.time->getTick(gWork.time), 2)) {
           // More I/O devices exist. Assign for the next.
-          work->state = kStateAddress;
+          gWork.state = kStateAddress;
         }
         return false;
       }
-      work->target = 1;
+      gWork.target = 1;
       break;
     case kStateRequestIoId:
-      work->tx_data[0] = work->target;
-      work->tx_data[1] = 2;  // Bytes
-      work->tx_data[2] = kCmdIoId;
-      work->data->setOutput(work->data);
-      sendPacket(work, work->tx_data);
-      work->tick = work->time->getTick(work->time);
+      gWork.tx_data[0] = gWork.target;
+      gWork.tx_data[1] = 2;  // Bytes
+      gWork.tx_data[2] = kCmdIoId;
+      gWork.data->setOutput(gWork.data);
+      sendPacket(gWork.tx_data);
+      gWork.tick = gWork.time->getTick(gWork.time);
       break;
     case kStateWaitIoIdResponse:
-      status = receiveStatus(work, &status_len);
+      status = receiveStatus(&status_len);
       if (!status)
         return false;
       if (status_len < 3 || status[0] != 1 || status[1] != 1) {
-        work->state = kStateInvalidResponse;
+        gWork.state = kStateInvalidResponse;
         return false;
       }
       if (client->receiveIoId)
-        client->receiveIoId(client, work->target, &status[2], status_len - 2);
+        client->receiveIoId(client, gWork.target, &status[2], status_len - 2);
       break;
     case kStateRequestCommandRev:
-      work->tx_data[0] = work->target;
-      work->tx_data[1] = 2;  // Bytes
-      work->tx_data[2] = kCmdCommandRev;
-      work->data->setOutput(work->data);
-      sendPacket(work, work->tx_data);
-      work->tick = work->time->getTick(work->time);
+      gWork.tx_data[0] = gWork.target;
+      gWork.tx_data[1] = 2;  // Bytes
+      gWork.tx_data[2] = kCmdCommandRev;
+      gWork.data->setOutput(gWork.data);
+      sendPacket(gWork.tx_data);
+      gWork.tick = gWork.time->getTick(gWork.time);
       break;
     case kStateWaitCommandRevResponse:
-      status = receiveStatus(work, &status_len);
+      status = receiveStatus(&status_len);
       if (!status)
         return false;
       if (status_len != 3 || status[0] != 1 || status[1] != 1) {
-        work->state = kStateInvalidResponse;
+        gWork.state = kStateInvalidResponse;
         return false;
       }
       if (client->receiveCommandRev)
-        client->receiveCommandRev(client, work->target, status[2]);
+        client->receiveCommandRev(client, gWork.target, status[2]);
       break;
     case kStateRequestJvRev:
-      work->tx_data[0] = work->target;
-      work->tx_data[1] = 2;  // Bytes
-      work->tx_data[2] = kCmdJvRev;
-      work->data->setOutput(work->data);
-      sendPacket(work, work->tx_data);
-      work->tick = work->time->getTick(work->time);
+      gWork.tx_data[0] = gWork.target;
+      gWork.tx_data[1] = 2;  // Bytes
+      gWork.tx_data[2] = kCmdJvRev;
+      gWork.data->setOutput(gWork.data);
+      sendPacket(gWork.tx_data);
+      gWork.tick = gWork.time->getTick(gWork.time);
       break;
     case kStateWaitJvRevResponse:
-      status = receiveStatus(work, &status_len);
+      status = receiveStatus(&status_len);
       if (!status)
         return false;
       if (status_len != 3 || status[0] != 1 || status[1] != 1) {
-        work->state = kStateInvalidResponse;
+        gWork.state = kStateInvalidResponse;
         return false;
       }
       if (client->receiveJvRev)
-        client->receiveJvRev(client, work->target, status[2]);
+        client->receiveJvRev(client, gWork.target, status[2]);
       break;
     case kStateRequestProtocolVer:
-      work->tx_data[0] = work->target;
-      work->tx_data[1] = 2;  // Bytes
-      work->tx_data[2] = kCmdProtocolVer;
-      work->data->setOutput(work->data);
-      sendPacket(work, work->tx_data);
-      work->tick = work->time->getTick(work->time);
+      gWork.tx_data[0] = gWork.target;
+      gWork.tx_data[1] = 2;  // Bytes
+      gWork.tx_data[2] = kCmdProtocolVer;
+      gWork.data->setOutput(gWork.data);
+      sendPacket(gWork.tx_data);
+      gWork.tick = gWork.time->getTick(gWork.time);
       break;
     case kStateWaitProtocolVerResponse:
-      status = receiveStatus(work, &status_len);
+      status = receiveStatus(&status_len);
       if (!status)
         return false;
       if (status_len != 3 || status[0] != 1 || status[1] != 1) {
-        work->state = kStateInvalidResponse;
+        gWork.state = kStateInvalidResponse;
         return false;
       }
       if (client->receiveProtocolVer)
-        client->receiveProtocolVer(client, work->target, status[2]);
+        client->receiveProtocolVer(client, gWork.target, status[2]);
       break;
     case kStateRequestFunctionCheck:
-      work->tx_data[0] = work->target;
-      work->tx_data[1] = 2;  // Bytes
-      work->tx_data[2] = kCmdFunctionCheck;
-      work->data->setOutput(work->data);
-      sendPacket(work, work->tx_data);
-      work->tick = work->time->getTick(work->time);
+      gWork.tx_data[0] = gWork.target;
+      gWork.tx_data[1] = 2;  // Bytes
+      gWork.tx_data[2] = kCmdFunctionCheck;
+      gWork.data->setOutput(gWork.data);
+      sendPacket(gWork.tx_data);
+      gWork.tick = gWork.time->getTick(gWork.time);
       break;
     case kStateWaitFunctionCheckResponse:
-      status = receiveStatus(work, &status_len);
+      status = receiveStatus(&status_len);
       if (!status)
         return false;
       if (status_len < 3 || status[0] != 1 || status[1] != 1) {
-        work->state = kStateInvalidResponse;
+        gWork.state = kStateInvalidResponse;
         return false;
       }
-      if (work->target <= 4) {
+      if (gWork.target <= 4) {
         // Doesn't support 5+ devices.
         for (uint8_t i = 2; i < status_len; i += 4) {
           switch (status[i]) {
             case 0x01:
-              work->players[work->target - 1] = status[i + 1];
-              work->buttons[work->target - 1] = status[i + 2];
-              work->total_player += status[i + 1];
-              if (work->total_player > 4)
-                work->total_player = 4;
+              gWork.players[gWork.target - 1] = status[i + 1];
+              gWork.buttons[gWork.target - 1] = status[i + 2];
+              gWork.total_player += status[i + 1];
+              if (gWork.total_player > 4)
+                gWork.total_player = 4;
               break;
             case 0x02:
-              work->coin_slots[work->target - 1] = status[i + 1];
+              gWork.coin_slots[gWork.target - 1] = status[i + 1];
               break;
             default:
               break;
@@ -722,129 +716,128 @@ static bool host(struct JVSIO_HostClient* client) {
         }
       }
       if (client->receiveFunctionCheck) {
-        client->receiveFunctionCheck(client, work->target, &status[2],
+        client->receiveFunctionCheck(client, gWork.target, &status[2],
                                      status_len - 2);
       }
-      if (work->target != work->devices) {
-        work->state = kStateRequestIoId;
-        work->target++;
+      if (gWork.target != gWork.devices) {
+        gWork.state = kStateRequestIoId;
+        gWork.target++;
         return false;
       }
       break;
     case kStateReady:
       return true;
     case kStateRequestSync: {
-      uint8_t target_index = work->target - 1;
-      work->tx_data[0] = work->target;
-      work->tx_data[1] = 6;  // Bytes
-      work->tx_data[2] = kCmdSwInput;
-      work->tx_data[3] = work->players[target_index];
-      work->tx_data[4] = (work->buttons[target_index] + 7) >> 3;
-      work->tx_data[5] = kCmdCoinInput;
-      work->tx_data[6] = work->coin_slots[target_index];
-      work->data->setOutput(work->data);
-      sendPacket(work, work->tx_data);
-      work->tick = work->time->getTick(work->time);
+      uint8_t target_index = gWork.target - 1;
+      gWork.tx_data[0] = gWork.target;
+      gWork.tx_data[1] = 6;  // Bytes
+      gWork.tx_data[2] = kCmdSwInput;
+      gWork.tx_data[3] = gWork.players[target_index];
+      gWork.tx_data[4] = (gWork.buttons[target_index] + 7) >> 3;
+      gWork.tx_data[5] = kCmdCoinInput;
+      gWork.tx_data[6] = gWork.coin_slots[target_index];
+      gWork.data->setOutput(gWork.data);
+      sendPacket(gWork.tx_data);
+      gWork.tick = gWork.time->getTick(gWork.time);
       break;
     }
     case kStateWaitSyncResponse: {
-      status = receiveStatus(work, &status_len);
+      status = receiveStatus(&status_len);
       if (!status)
         return false;
-      uint8_t target_index = work->target - 1;
-      uint8_t button_bytes = (work->buttons[target_index] + 7) >> 3;
-      uint8_t sw_bytes = 1 + button_bytes * work->players[target_index];
-      uint8_t coin_bytes = work->coin_slots[target_index] * 2;
+      uint8_t target_index = gWork.target - 1;
+      uint8_t button_bytes = (gWork.buttons[target_index] + 7) >> 3;
+      uint8_t sw_bytes = 1 + button_bytes * gWork.players[target_index];
+      uint8_t coin_bytes = gWork.coin_slots[target_index] * 2;
       uint8_t status_bytes = 3 + sw_bytes + coin_bytes;
       if (status_len != status_bytes || status[0] != 1 || status[1] != 1 ||
           status[2 + sw_bytes] != 1) {
-        work->state = kStateInvalidResponse;
+        gWork.state = kStateInvalidResponse;
         return false;
       }
       uint8_t player_index = 0;
       for (uint8_t i = 0; i < target_index; ++i) {
-        player_index += work->players[target_index];
+        player_index += gWork.players[target_index];
       }
-      work->coin_state |= status[2] & 0x80;
-      for (uint8_t player = 0; player < work->players[target_index]; ++player) {
-        work->sw_state0[player_index + player] =
+      gWork.coin_state |= status[2] & 0x80;
+      for (uint8_t player = 0; player < gWork.players[target_index]; ++player) {
+        gWork.sw_state0[player_index + player] =
             status[3 + button_bytes * player];
-        work->sw_state1[player_index + player] =
+        gWork.sw_state1[player_index + player] =
             status[4 + button_bytes * player];
       }
-      for (uint8_t player = 0; player < work->coin_slots[target_index];
+      for (uint8_t player = 0; player < gWork.coin_slots[target_index];
            ++player) {
         uint8_t mask = 1 << (player_index + player);
-        if (work->coin_state & mask) {
-          work->coin_state &= ~mask;
+        if (gWork.coin_state & mask) {
+          gWork.coin_state &= ~mask;
         } else {
           uint8_t index = 3 + sw_bytes + player * 2;
           uint16_t coin = (status[index] << 8) | status[index + 1];
           if (coin & 0xc000 || coin == 0)
             continue;
-          work->coin_state |= mask;
-          work->tx_data[0] = work->target;
-          work->tx_data[1] = 5;  // Bytes
-          work->tx_data[2] = kCmdCoinSub;
-          work->tx_data[3] = 1 + player;
-          work->tx_data[4] = 0;
-          work->tx_data[5] = 1;
-          work->data->setOutput(work->data);
-          sendPacket(work, work->tx_data);
-          work->tick = work->time->getTick(work->time);
-          work->state = kStateWaitCoinSyncResponse;
+          gWork.coin_state |= mask;
+          gWork.tx_data[0] = gWork.target;
+          gWork.tx_data[1] = 5;  // Bytes
+          gWork.tx_data[2] = kCmdCoinSub;
+          gWork.tx_data[3] = 1 + player;
+          gWork.tx_data[4] = 0;
+          gWork.tx_data[5] = 1;
+          gWork.data->setOutput(gWork.data);
+          sendPacket(gWork.tx_data);
+          gWork.tick = gWork.time->getTick(gWork.time);
+          gWork.state = kStateWaitCoinSyncResponse;
           return false;
         }
       }
-      if (work->target == work->devices) {
-        work->state = kStateReady;
+      if (gWork.target == gWork.devices) {
+        gWork.state = kStateReady;
         if (client->synced) {
-          client->synced(client, work->total_player, work->coin_state,
-                         work->sw_state0, work->sw_state1);
+          client->synced(client, gWork.total_player, gWork.coin_state,
+                         gWork.sw_state0, gWork.sw_state1);
         }
       } else {
-        work->state = kStateRequestSync;
-        work->target++;
+        gWork.state = kStateRequestSync;
+        gWork.target++;
       }
       return false;
     }
     case kStateWaitCoinSyncResponse:
-      status = receiveStatus(work, &status_len);
+      status = receiveStatus(&status_len);
       if (!status)
         return false;
       if (status_len != 2 || status[0] != 1 || status[1] != 1) {
-        work->state = kStateInvalidResponse;
+        gWork.state = kStateInvalidResponse;
         return false;
       }
-      if (work->target == work->devices) {
-        work->state = kStateReady;
+      if (gWork.target == gWork.devices) {
+        gWork.state = kStateReady;
         if (client->synced) {
-          client->synced(client, work->total_player, work->coin_state,
-                         work->sw_state0, work->sw_state1);
+          client->synced(client, gWork.total_player, gWork.coin_state,
+                         gWork.sw_state0, gWork.sw_state1);
         }
       } else {
-        work->state = kStateRequestSync;
-        work->target++;
+        gWork.state = kStateRequestSync;
+        gWork.target++;
       }
       return false;
     case kStateTimeout:
     case kStateInvalidResponse:
     case kStateUnexpected:
-      work->state = kStateDisconnected;
+      gWork.state = kStateDisconnected;
       return false;
     default:
       break;
   }
-  work->state++;
+  gWork.state++;
   return false;
 }
 
 static void sync() {
-  struct JVSIO_Work* work = &gWork;
-  if (work->state != kStateReady)
+  if (gWork.state != kStateReady)
     return;
-  work->state = kStateRequestSync;
-  work->target = 1;
+  gWork.state = kStateRequestSync;
+  gWork.target = 1;
 }
 #endif
 
@@ -854,7 +847,6 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
                              struct JVSIO_TimeClient* time,
                              uint8_t nodes) {
   struct JVSIO_Lib* jvsio = &gLib;
-  struct JVSIO_Work* work = &gWork;
 
   jvsio->getNextCommand = getNextCommand;
   jvsio->getNextSpeculativeCommand = getNextSpeculativeCommand;
@@ -865,30 +857,30 @@ struct JVSIO_Lib* JVSIO_open(struct JVSIO_DataClient* data,
   jvsio->host = host;
   jvsio->sync = sync;
 
-  work->state = kStateDisconnected;
+  gWork.state = kStateDisconnected;
 #endif
 
-  work->data = data;
-  work->sense = sense;
-  work->led = led;
-  work->time = time;
-  work->nodes = nodes ? nodes : 1;
-  work->rx_size = 0;
-  work->rx_read_ptr = 0;
-  work->rx_receiving = false;
-  work->rx_escaping = false;
-  work->rx_available = false;
-  work->rx_error = false;
-  work->new_address = kBroadcastAddress;
-  work->tx_report_size = 0;
-  work->downstream_ready = false;
-  work->comm_mode = k115200;
-  for (uint8_t i = 0; i < work->nodes; ++i)
-    work->address[i] = kBroadcastAddress;
+  gWork.data = data;
+  gWork.sense = sense;
+  gWork.led = led;
+  gWork.time = time;
+  gWork.nodes = nodes ? nodes : 1;
+  gWork.rx_size = 0;
+  gWork.rx_read_ptr = 0;
+  gWork.rx_receiving = false;
+  gWork.rx_escaping = false;
+  gWork.rx_available = false;
+  gWork.rx_error = false;
+  gWork.new_address = kBroadcastAddress;
+  gWork.tx_report_size = 0;
+  gWork.downstream_ready = false;
+  gWork.comm_mode = k115200;
+  for (uint8_t i = 0; i < gWork.nodes; ++i)
+    gWork.address[i] = kBroadcastAddress;
 
-  work->data->setInput(work->data);
-  work->sense->begin(work->sense);
-  work->led->begin(work->led);
+  gWork.data->setInput(gWork.data);
+  gWork.sense->begin(gWork.sense);
+  gWork.led->begin(gWork.led);
 
   return jvsio;
 }
