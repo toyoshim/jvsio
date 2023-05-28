@@ -5,7 +5,7 @@
 JVSIO is a general library to handle JVS - JAMMA Video Standard - Bus v3, and
 JVS Dash protocols. It's written in C and provides APIs for C.
 
-APIs for C++ and Arduino were deprecated. You can find it in the legacy branch.
+APIs for C++ and Arduino were deprecated. You can find it in the [legacy](https://github.com/toyoshim/jvsio/tree/legacy) branch.
 
 ## Applications that uses this library
 
