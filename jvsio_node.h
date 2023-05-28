@@ -9,10 +9,8 @@
 #include <stdint.h>
 
 void JVSIO_Node_init(uint8_t nodes);
-uint8_t* JVSIO_Node_getNextCommand(uint8_t* len, uint8_t* node);
-uint8_t* JVSIO_Node_getNextSpeculativeCommand(uint8_t* len, uint8_t* node);
+void JVSIO_Node_run(bool speculative);
 void JVSIO_Node_pushReport(uint8_t report);
-void JVSIO_Node_sendUnknownStatus();
 bool JVSIO_Node_isBusy();
 
 #endif  // !defined(__JVSIO_NODE_H__)

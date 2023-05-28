@@ -28,6 +28,10 @@ bool JVSIO_Client_isSenseReady();
 bool JVSIO_Client_isSenseConnected();
 
 // Required for client nodes.
+bool JVSIO_Client_receiveCommand(uint8_t node,
+                                 uint8_t* command,
+                                 uint8_t len,
+                                 bool commit);
 bool JVSIO_Client_setCommSupMode(enum JVSIO_CommSupMode mode, bool dryrun);
 void JVSIO_Client_setSense(bool ready);
 void JVSIO_Client_setLed(bool ready);

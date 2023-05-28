@@ -46,14 +46,34 @@ class ClientTest : public ::testing::Test {
     fprintf(stderr, "\n");
   }
   static void SetSense(bool ready) { instance->SetReady(ready); }
+  static bool ReceiveCommand(uint8_t node,
+                             uint8_t* command,
+                             uint8_t len,
+                             bool commit) {
+    Command data;
+    data.node = node;
+    for (uint8_t i = 0; i < len; ++i) {
+      data.command.push_back(command[i]);
+    }
+    data.commit = commit;
+    instance->received_commands_.push_back(data);
+    if (instance->report_.empty()) {
+      return false;
+    }
+    auto report = instance->report_.front();
+    instance->report_.pop();
+    for (uint8_t c : report) {
+      JVSIO_Node_pushReport(c);
+    }
+    return true;
+  }
 
  protected:
-  uint8_t* GetNextCommand(uint8_t* len) {
-    return JVSIO_Node_getNextCommand(len, 0);
-  }
-  uint8_t* GetNextSpeculativeCommand(uint8_t* len) {
-    return JVSIO_Node_getNextSpeculativeCommand(len, 0);
-  }
+  struct Command {
+    uint8_t node;
+    std::vector<uint8_t> command;
+    bool commit;
+  };
 
   bool IsReady() { return ready_; }
   void SetReady(bool ready) { ready_ = ready; }
@@ -87,9 +107,9 @@ class ClientTest : public ::testing::Test {
     }
   }
 
-  bool IsCommandEmpty() { return incoming_data_.empty(); }
+  bool IsIncomingDataEmpty() { return incoming_data_.empty(); }
 
-  uint8_t GetStatus(std::vector<uint8_t>& report) {
+  uint8_t RetrieveStatus(std::vector<uint8_t>& report) {
     EXPECT_GE(outgoing_data_.size(), 5u);
     EXPECT_EQ(kSync, outgoing_data_[0]);
     EXPECT_EQ(kHostAddress, outgoing_data_[1]);
@@ -106,20 +126,27 @@ class ClientTest : public ::testing::Test {
     return status;
   }
 
+  std::vector<Command>& GetReceivedCommands() { return received_commands_; }
+
   void SetUpAddress() {
     const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
     SetCommand(kBroadcastAddress, kAddressSetCommand,
                sizeof(kAddressSetCommand));
 
-    uint8_t len;
-    uint8_t* data = GetNextCommand(&len);
-    EXPECT_EQ(nullptr, data);
+    size_t commands = received_commands_.size();
+    JVSIO_Node_run(false);
+    EXPECT_EQ(commands, received_commands_.size());
 
     EXPECT_TRUE(IsReady());
+
+    std::vector<uint8_t> reports;
+    uint8_t status = RetrieveStatus(reports);
+    EXPECT_EQ(0x01, status);
+    ASSERT_EQ(1u, reports.size());
+    EXPECT_EQ(0x01, reports[0]);
   }
 
-  void SendUnknownStatus() { JVSIO_Node_sendUnknownStatus(); }
-  void PushReport(uint8_t report) { JVSIO_Node_pushReport(report); }
+  void PushReport(std::vector<uint8_t> report) { report_.push(report); }
 
  private:
   void SetUp() override {
@@ -133,6 +160,8 @@ class ClientTest : public ::testing::Test {
   bool ready_ = false;
   std::queue<uint8_t> incoming_data_;
   std::vector<uint8_t> outgoing_data_;
+  std::vector<Command> received_commands_;
+  std::queue<std::vector<uint8_t>> report_;
   bool outgoing_marked_ = false;
 
   static ClientTest* instance;
@@ -160,7 +189,13 @@ bool JVSIO_Client_isSenseReady() {
 }
 bool JVSIO_Client_isSenseConnected() {
   return false;
-};
+}
+bool JVSIO_Client_receiveCommand(uint8_t node,
+                                 uint8_t* command,
+                                 uint8_t len,
+                                 bool commit) {
+  return ClientTest::ReceiveCommand(node, command, len, commit);
+}
 bool JVSIO_Client_setCommSupMode(enum JVSIO_CommSupMode mode, bool dryrun) {
   return false;
 }
@@ -172,9 +207,8 @@ void JVSIO_Client_delayMicroseconds(unsigned int usec) {}
 }  // extern "C"
 
 TEST_F(ClientTest, DoNothing) {
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
+  JVSIO_Node_run(false);
+  EXPECT_EQ(0u, GetReceivedCommands().size());
 }
 
 TEST_F(ClientTest, Reset) {
@@ -184,10 +218,12 @@ TEST_F(ClientTest, Reset) {
   const uint8_t kResetCommand[] = {kCmdReset, 0xd9};
   SetCommand(kBroadcastAddress, kResetCommand, sizeof(kResetCommand));
 
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(kCmdReset, data[0]);
-  EXPECT_EQ(2u, len);
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  EXPECT_EQ(1u, GetReceivedCommands().size());
+  EXPECT_EQ(kCmdReset, GetReceivedCommands()[0].command[0]);
+  EXPECT_EQ(2, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(true, GetReceivedCommands()[0].commit);
 
   EXPECT_FALSE(IsReady());
 }
@@ -198,50 +234,66 @@ TEST_F(ClientTest, AddressSet) {
   const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
   SetCommand(kBroadcastAddress, kAddressSetCommand, sizeof(kAddressSetCommand));
 
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
+  // Address command should not be passed to the client.
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  EXPECT_EQ(0u, GetReceivedCommands().size());
 
   EXPECT_TRUE(IsReady());
 
   std::vector<uint8_t> reports;
-  uint8_t status = GetStatus(reports);
+  uint8_t status = RetrieveStatus(reports);
   EXPECT_EQ(0x01, status);
   ASSERT_EQ(1u, reports.size());
   EXPECT_EQ(0x01, reports[0]);
 
+  // Reset to a different address should be ignored.
   const uint8_t kResetCommand[] = {kCmdReset, 0xd9};
   SetCommand(0x02, kResetCommand, sizeof(kResetCommand));
-  GetNextCommand(&len);
+  JVSIO_Node_run(false);
   EXPECT_TRUE(IsReady());
 
+  // Reset to the node address should be handled.
   SetCommand(kClientAddress, kResetCommand, sizeof(kResetCommand));
-  GetNextCommand(&len);
+  JVSIO_Node_run(false);
   EXPECT_FALSE(IsReady());
+}
+
+TEST_F(ClientTest, SumError) {
+  SetUpAddress();
+
+  const uint8_t kCommand[] = {0xe0, 0x01, 0x04, 0x32, 0x01, 0x20, 0x00};
+  SetRawCommand(kCommand, sizeof(kCommand));
+
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  EXPECT_EQ(0u, GetReceivedCommands().size());
+
+  std::vector<uint8_t> reports;
+  uint8_t status = RetrieveStatus(reports);
+  EXPECT_EQ(0x03, status);
+  EXPECT_EQ(0u, reports.size());
 }
 
 TEST_F(ClientTest, Namco_70_18_50_4c_14) {
   SetUpAddress();
 
-  std::vector<uint8_t> reports;
-  uint8_t status = GetStatus(reports);
-  EXPECT_EQ(0x01, status);
-  ASSERT_EQ(1u, reports.size());
-  EXPECT_EQ(0x01, reports[0]);
-
   const uint8_t kCommand[] = {kCmdNamco, 0x18, 0x50, 0x4c, 0x14, 0xd0,
                               0x3b,      0x57, 0x69, 0x6e, 0x41, 0x72};
   SetCommand(kClientAddress, kCommand, sizeof(kCommand));
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(kCmdNamco, data[0]);
-  EXPECT_EQ(0x18, data[1]);
-  EXPECT_EQ(0x50, data[2]);
-  EXPECT_EQ(0x4c, data[3]);
-  EXPECT_EQ(0x14, data[4]);
-  SendUnknownStatus();
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(1u, GetReceivedCommands().size());
+  ASSERT_EQ(12u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(kCmdNamco, GetReceivedCommands()[0].command[0]);
+  EXPECT_EQ(0x18, GetReceivedCommands()[0].command[1]);
+  EXPECT_EQ(0x50, GetReceivedCommands()[0].command[2]);
+  EXPECT_EQ(0x4c, GetReceivedCommands()[0].command[3]);
+  EXPECT_EQ(0x14, GetReceivedCommands()[0].command[4]);
+  EXPECT_EQ(true, GetReceivedCommands()[0].commit);
 
-  status = GetStatus(reports);
+  std::vector<uint8_t> reports;
+  uint8_t status = RetrieveStatus(reports);
   EXPECT_EQ(0x02, status);
   ASSERT_EQ(0u, reports.size());
 }
@@ -249,29 +301,23 @@ TEST_F(ClientTest, Namco_70_18_50_4c_14) {
 TEST_F(ClientTest, Namco_70_18_50_4c_02) {
   SetUpAddress();
 
-  std::vector<uint8_t> reports;
-  uint8_t status = GetStatus(reports);
-  EXPECT_EQ(0x01, status);
-  ASSERT_EQ(1u, reports.size());
-  EXPECT_EQ(0x01, reports[0]);
-
   const uint8_t kCommand[] = {kCmdNamco, 0x18, 0x50, 0x4c, 0x02, 0x0e, 0x10};
 
   SetCommand(kClientAddress, kCommand, sizeof(kCommand));
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(kCmdNamco, data[0]);
-  EXPECT_EQ(0x18, data[1]);
-  EXPECT_EQ(0x50, data[2]);
-  EXPECT_EQ(0x4c, data[3]);
-  EXPECT_EQ(0x02, data[4]);
-  PushReport(kReportOk);
-  PushReport(0x01);
+  PushReport({kReportOk, 0x01});
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(1u, GetReceivedCommands().size());
+  ASSERT_EQ(7u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(kCmdNamco, GetReceivedCommands()[0].command[0]);
+  EXPECT_EQ(0x18, GetReceivedCommands()[0].command[1]);
+  EXPECT_EQ(0x50, GetReceivedCommands()[0].command[2]);
+  EXPECT_EQ(0x4c, GetReceivedCommands()[0].command[3]);
+  EXPECT_EQ(0x02, GetReceivedCommands()[0].command[4]);
+  EXPECT_EQ(true, GetReceivedCommands()[0].commit);
 
-  data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
-
-  status = GetStatus(reports);
+  std::vector<uint8_t> reports;
+  uint8_t status = RetrieveStatus(reports);
   EXPECT_EQ(0x01, status);
   ASSERT_EQ(2u, reports.size());
   EXPECT_EQ(0x01, reports[0]);
@@ -281,33 +327,63 @@ TEST_F(ClientTest, Namco_70_18_50_4c_02) {
 TEST_F(ClientTest, Namco_70_18_50_4c_80) {
   SetUpAddress();
 
-  std::vector<uint8_t> reports;
-  uint8_t status = GetStatus(reports);
-  EXPECT_EQ(0x01, status);
-  ASSERT_EQ(1u, reports.size());
-  EXPECT_EQ(0x01, reports[0]);
-
   const uint8_t kCommand[] = {kCmdNamco, 0x18, 0x50, 0x4c, 0x80, 0x08};
 
   SetCommand(kClientAddress, kCommand, sizeof(kCommand));
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(kCmdNamco, data[0]);
-  EXPECT_EQ(0x18, data[1]);
-  EXPECT_EQ(0x50, data[2]);
-  EXPECT_EQ(0x4c, data[3]);
-  EXPECT_EQ(0x80, data[4]);
-  PushReport(kReportOk);
-  PushReport(0x01);
+  PushReport({kReportOk, 0x01});
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(1u, GetReceivedCommands().size());
+  ASSERT_EQ(6u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(kCmdNamco, GetReceivedCommands()[0].command[0]);
+  EXPECT_EQ(0x18, GetReceivedCommands()[0].command[1]);
+  EXPECT_EQ(0x50, GetReceivedCommands()[0].command[2]);
+  EXPECT_EQ(0x4c, GetReceivedCommands()[0].command[3]);
+  EXPECT_EQ(0x80, GetReceivedCommands()[0].command[4]);
+  EXPECT_EQ(true, GetReceivedCommands()[0].commit);
 
-  data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
-
-  status = GetStatus(reports);
+  std::vector<uint8_t> reports;
+  uint8_t status = RetrieveStatus(reports);
   EXPECT_EQ(0x01, status);
   ASSERT_EQ(2u, reports.size());
   EXPECT_EQ(0x01, reports[0]);
   EXPECT_EQ(0x01, reports[1]);
+}
+
+TEST_F(ClientTest, MultiCommandWithUnknownToLibrary) {
+  SetUpAddress();
+
+  const uint8_t kCommand[] = {0x32, 0x01, 0x20, 0x80, 0x00};
+
+  SetCommand(kClientAddress, kCommand, sizeof(kCommand));
+  PushReport({kReportOk, 0x01});
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  // A command that is unknown to the library doesn't appear in the client API
+  // as of due to unknown command length.
+  ASSERT_EQ(1u, GetReceivedCommands().size());
+  ASSERT_EQ(3u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(0x32, GetReceivedCommands()[0].command[0]);
+}
+
+TEST_F(ClientTest, MultiCommandWithUnknownToClient) {
+  SetUpAddress();
+
+  const uint8_t kCommand[] = {0x21, 0x02, 0x22, 0x04, 0x25, 0x01};
+
+  SetCommand(kClientAddress, kCommand, sizeof(kCommand));
+  // Prepare reports only for the first command, and results on unknown report
+  // for remaining commands.
+  PushReport({kReportOk, 0x01});
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  // A command that is unknown by the library doesn't appear in the client API
+  // as of due to unknown command length.
+  ASSERT_EQ(2u, GetReceivedCommands().size());
+  ASSERT_EQ(2u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(0x21, GetReceivedCommands()[0].command[0]);
+  ASSERT_EQ(2u, GetReceivedCommands()[1].command.size());
+  EXPECT_EQ(0x22, GetReceivedCommands()[1].command[0]);
 }
 
 TEST_F(ClientTest, MultiCommand) {
@@ -317,130 +393,130 @@ TEST_F(ClientTest, MultiCommand) {
                               0x21, 0x02, 0x22, 0x04, 0x25, 0x01};
 
   SetCommand(kClientAddress, kCommand, sizeof(kCommand));
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(3, len);
-  EXPECT_EQ(0x32, *data);
-  PushReport(kReportOk);
-  PushReport(0x01);
-
-  data = GetNextCommand(&len);
-  EXPECT_EQ(3, len);
-  EXPECT_EQ(0x20, *data);
-
-  data = GetNextCommand(&len);
-  EXPECT_EQ(2, len);
-  EXPECT_EQ(0x21, *data);
-
-  data = GetNextCommand(&len);
-  EXPECT_EQ(2, len);
-  EXPECT_EQ(0x22, *data);
-
-  data = GetNextCommand(&len);
-  EXPECT_EQ(2, len);
-  EXPECT_EQ(0x25, *data);
-
-  data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
+  PushReport({kReportOk, 0x01});
+  PushReport({kReportOk, 0x01});
+  PushReport({kReportOk, 0x01});
+  PushReport({kReportOk, 0x01});
+  PushReport({kReportOk, 0x01});
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(5u, GetReceivedCommands().size());
+  ASSERT_EQ(3u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(0x32, GetReceivedCommands()[0].command[0]);
+  ASSERT_EQ(3u, GetReceivedCommands()[1].command.size());
+  EXPECT_EQ(0x20, GetReceivedCommands()[1].command[0]);
+  ASSERT_EQ(2u, GetReceivedCommands()[2].command.size());
+  EXPECT_EQ(0x21, GetReceivedCommands()[2].command[0]);
+  ASSERT_EQ(2u, GetReceivedCommands()[3].command.size());
+  EXPECT_EQ(0x22, GetReceivedCommands()[3].command[0]);
+  ASSERT_EQ(2u, GetReceivedCommands()[4].command.size());
+  EXPECT_EQ(0x25, GetReceivedCommands()[4].command[0]);
 }
 
 TEST_F(ClientTest, PartialCommandVerified) {
   SetUpAddress();
 
+  PushReport({kReportOk, 0x01});
+  PushReport({kReportOk, 0x01});
+  PushReport({kReportOk, 0x01});
+  PushReport({kReportOk, 0x01});
+  PushReport({kReportOk, 0x01});
+
   const uint8_t kCommand1[] = {0xe0, 0x01, 0x0d, 0x32};
   const uint8_t kCommand2[] = {0x01, 0x20, 0x20, 0x02, 0x02};
   const uint8_t kCommand3[] = {0x21, 0x02, 0x22};
   const uint8_t kCommand4[] = {0x04, 0x25, 0x01, 0xf4};
 
   SetRawCommand(kCommand1, sizeof(kCommand1));
-
-  uint8_t len;
-  uint8_t* data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
-  ASSERT_TRUE(IsCommandEmpty());
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(0u, GetReceivedCommands().size());
 
   SetRawCommand(kCommand2, sizeof(kCommand2));
-  data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
-  ASSERT_TRUE(IsCommandEmpty());
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(0u, GetReceivedCommands().size());
 
   SetRawCommand(kCommand3, sizeof(kCommand3));
-  data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
-  ASSERT_TRUE(IsCommandEmpty());
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(0u, GetReceivedCommands().size());
 
   SetRawCommand(kCommand4, sizeof(kCommand4));
-  data = GetNextCommand(&len);
-  ASSERT_TRUE(IsCommandEmpty());
-  ASSERT_EQ(3, len);
-  EXPECT_EQ(0x32, *data);
-
-  data = GetNextCommand(&len);
-  ASSERT_EQ(3, len);
-  EXPECT_EQ(0x20, *data);
-
-  data = GetNextCommand(&len);
-  ASSERT_EQ(2, len);
-  EXPECT_EQ(0x21, *data);
-
-  data = GetNextCommand(&len);
-  ASSERT_EQ(2, len);
-  EXPECT_EQ(0x22, *data);
-
-  data = GetNextCommand(&len);
-  ASSERT_EQ(2, len);
-  EXPECT_EQ(0x25, *data);
-
-  data = GetNextCommand(&len);
-  EXPECT_EQ(nullptr, data);
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(5u, GetReceivedCommands().size());
+  ASSERT_EQ(3u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(0x32, GetReceivedCommands()[0].command[0]);
+  ASSERT_EQ(3u, GetReceivedCommands()[1].command.size());
+  EXPECT_EQ(0x20, GetReceivedCommands()[1].command[0]);
+  ASSERT_EQ(2u, GetReceivedCommands()[2].command.size());
+  EXPECT_EQ(0x21, GetReceivedCommands()[2].command[0]);
+  ASSERT_EQ(2u, GetReceivedCommands()[3].command.size());
+  EXPECT_EQ(0x22, GetReceivedCommands()[3].command[0]);
+  ASSERT_EQ(2u, GetReceivedCommands()[4].command.size());
+  EXPECT_EQ(0x25, GetReceivedCommands()[4].command[0]);
 }
 
 TEST_F(ClientTest, PartialCommandSpeculative) {
   SetUpAddress();
 
+  PushReport({kReportOk});
+  PushReport({kReportOk});
+  PushReport({kReportOk});
+  PushReport({kReportOk});
+  PushReport({kReportOk});
+
   const uint8_t kCommand1[] = {0xe0, 0x01, 0x0d, 0x32};
   const uint8_t kCommand2[] = {0x01, 0x20, 0x20, 0x02, 0x02};
   const uint8_t kCommand3[] = {0x21, 0x02, 0x22};
-  const uint8_t kCommand4[] = {0x04, 0x25, 0x01, 0xf4};
+  const uint8_t kCommand4[] = {0x04, 0x25, 0x01};
+  const uint8_t kCommand5[] = {0xf4};
 
   SetRawCommand(kCommand1, sizeof(kCommand1));
-
-  uint8_t len;
-  uint8_t* data = GetNextSpeculativeCommand(&len);
-  EXPECT_EQ(nullptr, data);
+  JVSIO_Node_run(true);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  EXPECT_EQ(0u, GetReceivedCommands().size());
 
   SetRawCommand(kCommand2, sizeof(kCommand2));
-
-  data = GetNextSpeculativeCommand(&len);
-  EXPECT_EQ(3, len);
-  EXPECT_EQ(0x32, *data);
-
-  data = GetNextSpeculativeCommand(&len);
-  EXPECT_EQ(3, len);
-  EXPECT_EQ(0x20, *data);
-
-  data = GetNextSpeculativeCommand(&len);
-  EXPECT_EQ(nullptr, data);
+  JVSIO_Node_run(true);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  EXPECT_EQ(2u, GetReceivedCommands().size());
 
   SetRawCommand(kCommand3, sizeof(kCommand3));
-
-  data = GetNextSpeculativeCommand(&len);
-  EXPECT_EQ(2, len);
-  EXPECT_EQ(0x21, *data);
-
-  data = GetNextSpeculativeCommand(&len);
-  EXPECT_EQ(nullptr, data);
+  JVSIO_Node_run(true);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  EXPECT_EQ(3u, GetReceivedCommands().size());
 
   SetRawCommand(kCommand4, sizeof(kCommand4));
+  JVSIO_Node_run(true);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  EXPECT_EQ(4u, GetReceivedCommands().size());
 
-  data = GetNextSpeculativeCommand(&len);
-  EXPECT_EQ(2, len);
-  EXPECT_EQ(0x22, *data);
+  SetRawCommand(kCommand5, sizeof(kCommand5));
+  JVSIO_Node_run(true);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(5u, GetReceivedCommands().size());
 
-  data = GetNextSpeculativeCommand(&len);
-  EXPECT_EQ(2, len);
-  EXPECT_EQ(0x25, *data);
+  ASSERT_EQ(5u, GetReceivedCommands().size());
+  ASSERT_EQ(3u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(0x32, GetReceivedCommands()[0].command[0]);
+  EXPECT_FALSE(GetReceivedCommands()[0].commit);
+  ASSERT_EQ(3u, GetReceivedCommands()[1].command.size());
+  EXPECT_EQ(0x20, GetReceivedCommands()[1].command[0]);
+  EXPECT_FALSE(GetReceivedCommands()[1].commit);
+  ASSERT_EQ(2u, GetReceivedCommands()[2].command.size());
+  EXPECT_EQ(0x21, GetReceivedCommands()[2].command[0]);
+  EXPECT_FALSE(GetReceivedCommands()[2].commit);
+  ASSERT_EQ(2u, GetReceivedCommands()[3].command.size());
+  EXPECT_EQ(0x22, GetReceivedCommands()[3].command[0]);
+  EXPECT_FALSE(GetReceivedCommands()[3].commit);
+  ASSERT_EQ(2u, GetReceivedCommands()[4].command.size());
+  EXPECT_EQ(0x25, GetReceivedCommands()[4].command[0]);
+  EXPECT_TRUE(GetReceivedCommands()[4].commit);
 
-  data = GetNextSpeculativeCommand(&len);
-  EXPECT_EQ(nullptr, data);
+  std::vector<uint8_t> reports;
+  uint8_t status = RetrieveStatus(reports);
+  EXPECT_EQ(0x01, status);
+  EXPECT_EQ(5u, reports.size());
 }
