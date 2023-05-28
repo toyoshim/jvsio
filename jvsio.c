@@ -188,7 +188,6 @@ static void senseReady() {
 }
 
 static void sendPacket(const uint8_t* data) {
-  JVSIO_DataClient_startTransaction();
   JVSIO_DataClient_write(kSync);
   uint8_t sum = 0;
 
@@ -197,7 +196,6 @@ static void sendPacket(const uint8_t* data) {
     writeEscapedByte(data[i]);
   }
   writeEscapedByte(sum);
-  JVSIO_DataClient_endTransaction();
 
   JVSIO_DataClient_setInput();
 }

@@ -21,8 +21,6 @@ enum JVSIO_CommSupMode {
 int JVSIO_DataClient_available();
 void JVSIO_DataClient_setInput();
 void JVSIO_DataClient_setOutput();
-void JVSIO_DataClient_startTransaction();
-void JVSIO_DataClient_endTransaction();
 uint8_t JVSIO_DataClient_read();
 void JVSIO_DataClient_write(uint8_t data);
 void JVSIO_DataClient_dump(const char* str, uint8_t* data, uint8_t len);
