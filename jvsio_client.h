@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#if !defined(__JVSIO_CLIENTS_H__)
-#define __JVSIO_CLIENTS_H__
+#if !defined(__JVSIO_CLIENT_H__)
+#define __JVSIO_CLIENT_H__
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -47,4 +47,4 @@ void JVSIO_Client_synced(uint8_t players,
                          uint8_t* sw_state0,
                          uint8_t* sw_state1);
 
-#endif  // !defined(__JVSIO_CLIENTS_H__)
+#endif  // !defined(__JVSIO_CLIENT_H__)

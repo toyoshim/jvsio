@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "jvsio_clients.h"
+#include "jvsio_client.h"
 
 // JVSIO provides JVS (Jamma Video Standard 3.0) I/O transport,
 // differential serial at 115.2Kbps, 8-bits, 1-start/stop bits, non parity.
