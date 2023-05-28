@@ -196,7 +196,7 @@ static void receive(bool speculative) {
     // No data.
     return;
   }
-  if (speculative && (rx_data[1] + 2) != rx_size) {
+  if (speculative) {
     // Speculatively handle receiving commands.
     uint8_t command_size;
     if (!getCommandSize(&rx_data[rx_read_ptr], rx_size - rx_read_ptr,
@@ -211,14 +211,13 @@ static void receive(bool speculative) {
       // No command is ready to process.
       return;
     }
-    if ((rx_data[1] + 1) == (rx_read_ptr + command_size)) {
-      // The last command needs a checksum verification. Do nothing until the
-      // last byte is received.
+    // The last command needs a checksum verification. Do nothing until the
+    // last byte is received.
+    if ((rx_data[1] + 1) != (rx_read_ptr + command_size)) {
+      // At least, one command is ready to process.
+      rx_available = true;
       return;
     }
-    // At least, one command is ready to process.
-    rx_available = true;
-    return;
   }
 
   // Wait for the last byte, checksum.

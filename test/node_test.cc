@@ -458,6 +458,23 @@ TEST_F(ClientTest, MultiCommand) {
   EXPECT_EQ(0x25, GetReceivedCommands()[4].command[0]);
 }
 
+TEST_F(ClientTest, MultiCommandWithSpeculaton) {
+  SetUpAddress();
+
+  const uint8_t kCommand[] = {0x21, 0x02, 0x20, 0x02, 0x02};
+
+  SetCommand(kClientAddress, kCommand, sizeof(kCommand));
+  PushReport({kReportOk, 0x00, 0x01, 0x00, 0x00});
+  PushReport({kReportOk, 0x12, 0x34, 0x56, 0x78});
+  JVSIO_Node_run(true);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(2u, GetReceivedCommands().size());
+  ASSERT_EQ(2u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(0x21, GetReceivedCommands()[0].command[0]);
+  ASSERT_EQ(3u, GetReceivedCommands()[1].command.size());
+  EXPECT_EQ(0x20, GetReceivedCommands()[1].command[0]);
+}
+
 TEST_F(ClientTest, PartialCommandVerified) {
   SetUpAddress();
 
