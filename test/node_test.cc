@@ -257,6 +257,26 @@ TEST_F(ClientTest, AddressSet) {
   EXPECT_FALSE(IsReady());
 }
 
+TEST_F(ClientTest, AddressSetNeedsCheckSum) {
+  ASSERT_FALSE(IsReady());
+
+  const uint8_t kAddressSetCommand[] = {kCmdAddressSet, kClientAddress};
+  SetCommand(kBroadcastAddress, kAddressSetCommand, sizeof(kAddressSetCommand));
+
+  // Address command should not be passed to the client.
+  JVSIO_Node_run(true);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  EXPECT_EQ(0u, GetReceivedCommands().size());
+
+  EXPECT_TRUE(IsReady());
+
+  std::vector<uint8_t> reports;
+  uint8_t status = RetrieveStatus(reports);
+  EXPECT_EQ(0x01, status);
+  ASSERT_EQ(1u, reports.size());
+  EXPECT_EQ(0x01, reports[0]);
+}
+
 TEST_F(ClientTest, SumError) {
   SetUpAddress();
 
