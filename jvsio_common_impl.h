@@ -71,27 +71,46 @@ static bool getCommandSize(uint8_t* command, uint8_t len, uint8_t* size) {
       *size = 4;
       return true;
     case kCmdDriverOutput:
-      *size = command[1] + 2;
+      *size = (len < 2) ? 0 : (command[1] + 2);
       return true;
     case kCmdAnalogOutput:
-      *size = command[1] * 2 + 2;
+      *size = (len < 2) ? 0 : (command[1] * 2 + 2);
       return true;
     case kCmdCharacterOutput:
-      *size = command[1] + 2;
+      *size = (len < 2) ? 0 : (command[1] + 2);
       return true;
     case kCmdNamco:
-      switch (command[4]) {
-        case 0x02:
-          *size = 7;
-          return true;
-        case 0x14:
-          *size = 12;
-          return true;
-        case 0x80:
-          *size = 6;
-          return true;
+      if (len < 2) {
+        *size = 0;
+      } else {
+        switch (command[1]) {
+          case 0x04:
+            *size = 4;
+            break;
+          case 0x18:
+            if (len < 5) {
+              *size = 0;
+            } else {
+              switch (command[4]) {
+                case 0x02:
+                  *size = 7;
+                  break;
+                case 0x14:
+                  *size = 12;
+                  break;
+                case 0x80:
+                  *size = 6;
+                  break;
+                default:
+                  return false;
+              }
+            }
+            break;
+          default:
+            return false;
+        }
       }
-      return false;
+      return true;
     case kCmdCommSup:
       *size = 1;
       return true;
@@ -99,7 +118,6 @@ static bool getCommandSize(uint8_t* command, uint8_t len, uint8_t* size) {
       *size = 2;
       return true;
     default:
-      JVSIO_Client_dump("unknown command", command, 1);
       return false;
   }
   *size = 2;

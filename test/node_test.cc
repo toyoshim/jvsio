@@ -395,6 +395,31 @@ TEST_F(ClientTest, Namco_70_18_50_4c_80) {
   EXPECT_EQ(0x01, reports[1]);
 }
 
+TEST_F(ClientTest, Namco_70_04_70_02) {
+  SetUpAddress();
+
+  const uint8_t kCommand[] = {kCmdNamco, 0x04, 0x70, 0x02};
+
+  SetCommand(kClientAddress, kCommand, sizeof(kCommand));
+  PushReport({kReportOk, 0x01});
+  JVSIO_Node_run(false);
+  EXPECT_TRUE(IsIncomingDataEmpty());
+  ASSERT_EQ(1u, GetReceivedCommands().size());
+  ASSERT_EQ(4u, GetReceivedCommands()[0].command.size());
+  EXPECT_EQ(kCmdNamco, GetReceivedCommands()[0].command[0]);
+  EXPECT_EQ(0x04, GetReceivedCommands()[0].command[1]);
+  EXPECT_EQ(0x70, GetReceivedCommands()[0].command[2]);
+  EXPECT_EQ(0x02, GetReceivedCommands()[0].command[3]);
+  EXPECT_EQ(true, GetReceivedCommands()[0].commit);
+
+  std::vector<uint8_t> reports;
+  uint8_t status = RetrieveStatus(reports);
+  EXPECT_EQ(0x01, status);
+  ASSERT_EQ(2u, reports.size());
+  EXPECT_EQ(0x01, reports[0]);
+  EXPECT_EQ(0x01, reports[1]);
+}
+
 TEST_F(ClientTest, MultiCommandWithUnknownToLibrary) {
   SetUpAddress();
 
