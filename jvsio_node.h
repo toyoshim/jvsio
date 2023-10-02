@@ -11,6 +11,6 @@
 void JVSIO_Node_init(uint8_t nodes);
 void JVSIO_Node_run(bool speculative);
 void JVSIO_Node_pushReport(uint8_t report);
-bool JVSIO_Node_isBusy();
+bool JVSIO_Node_isBusy(void);
 
 #endif  // !defined(__JVSIO_NODE_H__)

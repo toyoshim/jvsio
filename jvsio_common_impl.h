@@ -24,7 +24,7 @@ static uint8_t nodes;
 static uint8_t address[2];
 static bool downstream_ready;
 
-static bool matchAddress() {
+static bool matchAddress(void) {
   uint8_t target = rx_data[0];
   for (uint8_t i = 0; i < nodes; ++i) {
     if (target == address[i]) {
@@ -139,7 +139,7 @@ static void writeEscapedByte(uint8_t data) {
   }
 }
 
-static void sendPacket() {
+static void sendPacket(void) {
   JVSIO_Client_send(kSync);
   uint8_t sum = 0;
 
@@ -152,13 +152,13 @@ static void sendPacket() {
   JVSIO_Client_willReceive();
 }
 
-static void pushOverflowStatus() {
+static void pushOverflowStatus(void) {
   tx_data[0] = kHostAddress;
   tx_data[1] = 2;
   tx_data[2] = 0x04;
 }
 
-static void pushUnknownCommandStatus() {
+static void pushUnknownCommandStatus(void) {
   if (tx_report_size > 253) {
     return pushOverflowStatus();
   }

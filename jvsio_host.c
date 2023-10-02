@@ -85,7 +85,7 @@ static uint8_t* receiveStatus(uint8_t* len) {
   return &rx_data[2];
 }
 
-void JVSIO_Host_init() {
+void JVSIO_Host_init(void) {
   state = kStateDisconnected;
   rx_size = 0;
   rx_read_ptr = 0;
@@ -100,7 +100,7 @@ void JVSIO_Host_init() {
   JVSIO_Client_willReceive();
 }
 
-bool JVSIO_Host_run() {
+bool JVSIO_Host_run(void) {
   uint8_t* status = 0;
   uint8_t status_len = 0;
   bool connected = JVSIO_Client_isSenseConnected();
@@ -381,7 +381,7 @@ bool JVSIO_Host_run() {
   return false;
 }
 
-void JVSIO_Host_sync() {
+void JVSIO_Host_sync(void) {
   if (state != kStateReady)
     return;
   state = kStateRequestSync;

@@ -12,17 +12,17 @@
 static uint8_t new_address;
 static enum JVSIO_CommSupMode comm_mode;
 
-static void senseNotReady() {
+static void senseNotReady(void) {
   JVSIO_Client_setSense(false);
   JVSIO_Client_setLed(false);
 }
 
-static void senseReady() {
+static void senseReady(void) {
   JVSIO_Client_setSense(true);
   JVSIO_Client_setLed(true);
 }
 
-static void sendStatus() {
+static void sendStatus(void) {
   // Should not reply if the rx_receiving is reset, e.g. for broadcast commands.
   if (rx_receiving) {
     return;
@@ -67,7 +67,7 @@ static void sendStatus() {
   sendPacket();
 }
 
-static void sendOkStatus() {
+static void sendOkStatus(void) {
   if (tx_report_size > 253) {
     pushOverflowStatus();
   } else {
@@ -78,14 +78,14 @@ static void sendOkStatus() {
   sendStatus();
 }
 
-static void sendSumErrorStatus() {
+static void sendSumErrorStatus(void) {
   tx_data[0] = kHostAddress;
   tx_data[1] = 2;
   tx_data[2] = 0x03;
   sendStatus();
 }
 
-static uint8_t getReceivingNode() {
+static uint8_t getReceivingNode(void) {
   uint8_t node = kBroadcastAddress;
   for (uint8_t i = 0; i < nodes; ++i) {
     if (address[i] == rx_data[0]) {
@@ -170,7 +170,7 @@ void JVSIO_Node_pushReport(uint8_t report) {
   }
 }
 
-bool JVSIO_Node_isBusy() {
+bool JVSIO_Node_isBusy(void) {
   return rx_receiving;
 }
 

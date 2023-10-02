@@ -7,8 +7,8 @@
 
 #include <stdbool.h>
 
-void JVSIO_Host_init();
-bool JVSIO_Host_run();
-void JVSIO_Host_sync();
+void JVSIO_Host_init(void);
+bool JVSIO_Host_run(void);
+void JVSIO_Host_sync(void);
 
 #endif  // !defined(__JVSIO_HOST_H__)
