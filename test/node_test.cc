@@ -224,6 +224,8 @@ TEST_F(ClientTest, Reset) {
   EXPECT_EQ(true, GetReceivedCommands()[0].commit);
 
   EXPECT_FALSE(IsReady());
+
+  EXPECT_TRUE(IsOutgoingDataEmpty());
 }
 
 TEST_F(ClientTest, AddressSet) {

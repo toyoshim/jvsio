@@ -10,6 +10,7 @@
 #include "jvsio_common_impl.h"
 
 static uint8_t new_address;
+static bool no_status;
 static enum JVSIO_CommSupMode comm_mode;
 
 static void senseNotReady(void) {
@@ -24,7 +25,8 @@ static void senseReady(void) {
 
 static void sendStatus(void) {
   // Should not reply if the rx_receiving is reset, e.g. for broadcast commands.
-  if (rx_receiving) {
+  if (no_status) {
+    no_status = false;
     return;
   }
 
@@ -106,6 +108,7 @@ static bool receiveCommand(uint8_t node,
         address[i] = kBroadcastAddress;
       }
       rx_receiving = false;
+      no_status = true;
       JVSIO_Client_dump("reset", NULL, 0);
       JVSIO_Client_receiveCommand(node, command, len, commit);
       break;
@@ -116,6 +119,7 @@ static bool receiveCommand(uint8_t node,
         JVSIO_Node_pushReport(kReportOk);
       } else {
         rx_receiving = false;
+        no_status = true;
       }
       break;
     case kCmdCommandRev:
@@ -249,6 +253,7 @@ void JVSIO_Node_init(uint8_t given_nodes) {
   rx_available = false;
   rx_error = false;
   new_address = kBroadcastAddress;
+  no_status = false;
   tx_report_size = 0;
   downstream_ready = false;
   comm_mode = k115200;
